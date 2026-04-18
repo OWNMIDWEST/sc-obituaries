@@ -10,6 +10,7 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # allow up to 30 min for full page fetching
 
     permissions:
       contents: write   # needed to commit history back to repo
@@ -37,6 +38,6 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/sc_obituaries_history.json docs/index.html
+          git add docs/sc_obituaries_history.json
           git diff --staged --quiet || git commit -m "chore: obituary update $(date -u +%Y-%m-%d)"
           git push
