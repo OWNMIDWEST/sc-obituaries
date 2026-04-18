@@ -2,7 +2,7 @@
   "2026-04-18": {
     "Greenville": [
       {
-        "name": "View Pricing",
+        "name": "Price Lists",
         "date": "See source",
         "location": "Greenville County, SC",
         "family": "",
@@ -11,90 +11,17 @@
         "link": ""
       },
       {
-        "name": "Request Appointment",
+        "name": "Video Consultation",
         "date": "See source",
         "location": "Greenville County, SC",
         "family": "",
         "source": "Mackey Mortuary",
         "county": "Greenville",
         "link": ""
-      },
-      {
-        "name": "View Gallery",
-        "date": "See source",
-        "location": "Greenville County, SC",
-        "family": "",
-        "source": "Mackey Mortuary",
-        "county": "Greenville",
-        "link": ""
-      },
-      {
-        "name": "Frequently Asked Questions",
-        "date": "See source",
-        "location": "Greenville County, SC",
-        "family": "",
-        "source": "Mackey Mortuary",
-        "county": "Greenville",
-        "link": "https://www.mackeymortuary.com/faq"
       }
     ],
-    "Spartanburg": [
-      {
-        "name": "Our Services",
-        "date": "See source",
-        "location": "Spartanburg County, SC",
-        "family": "",
-        "source": "Community Mortuary",
-        "county": "Spartanburg",
-        "link": "https://www.communitymortuaryinc.com/our-services"
-      },
-      {
-        "name": "Urn Store",
-        "date": "See source",
-        "location": "Spartanburg County, SC",
-        "family": "",
-        "source": "Community Mortuary",
-        "county": "Spartanburg",
-        "link": "https://communitymortuaryinc.memorialstores.com/"
-      },
-      {
-        "name": "Photographic Tour",
-        "date": "See source",
-        "location": "Spartanburg County, SC",
-        "family": "",
-        "source": "Bobo Funeral Chapel",
-        "county": "Spartanburg",
-        "link": "https://www.bobofuneralchapel.com/photographic-tour"
-      },
-      {
-        "name": "General Price List",
-        "date": "See source",
-        "location": "Spartanburg County, SC",
-        "family": "",
-        "source": "Roberts Funeral Home",
-        "county": "Spartanburg",
-        "link": "https://www.robertsfhsc.com/general-price-list"
-      }
-    ],
+    "Spartanburg": [],
     "Anderson": [
-      {
-        "name": "Cookie Preferences",
-        "date": "See source",
-        "location": "Anderson County, SC",
-        "family": "",
-        "source": "Marcus D. Brown Funeral Home",
-        "county": "Anderson",
-        "link": ""
-      },
-      {
-        "name": "Search Obituaries",
-        "date": "See source",
-        "location": "Anderson County, SC",
-        "family": "",
-        "source": "Sosebee Mortuary",
-        "county": "Anderson",
-        "link": ""
-      },
       {
         "name": "Donna Garrett",
         "date": "April 16, 2026",
