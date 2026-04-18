@@ -5,52 +5,57 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>SC Obituary Dashboard</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Georgia,serif;background:#f5f5f0;color:#222;padding:16px}
-.hdr{background:#1a1a2e;color:white;padding:18px 24px;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
-.hdr h1{font-size:21px;margin-bottom:3px}
-.hdr p{color:#aaa;font-size:13px;font-family:Arial,sans-serif}
-.nav{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
-.tab{padding:8px 16px;border-radius:20px;border:none;cursor:pointer;font-family:Arial,sans-serif;font-size:13px;font-weight:600;transition:opacity .15s}
-.tab:hover{opacity:.85}
-.panel{display:none}.panel.active{display:block}
-.layout{display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start}
-@media(max-width:700px){.layout{grid-template-columns:1fr}}
-.card{background:white;border-radius:8px;padding:20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-.card-sm{background:white;border-radius:8px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
-.ctitle{font-size:17px;font-weight:bold;border-left:5px solid;padding-left:12px;margin-bottom:13px}
-.stitle{font-size:13px;font-weight:700;font-family:Arial,sans-serif;color:#374151;margin-bottom:10px}
-.badge{font-family:Arial,sans-serif;font-size:11px;background:#f3f4f6;color:#555;padding:2px 9px;border-radius:12px;margin-left:6px;font-weight:normal}
-table{width:100%;border-collapse:collapse;font-size:13px}
-thead tr{background:#f0f0f0}
-th{padding:7px 9px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#555}
-td{padding:8px 9px;border-bottom:1px solid #eee;vertical-align:top}
-tr:last-child td{border-bottom:none}
-tr:hover td{background:#fafafa}
-a.vl{text-decoration:none;font-size:11px;font-family:Arial,sans-serif;padding:2px 9px;border-radius:8px;color:white}
-.empty{color:#999;font-style:italic;padding:8px 0;font-family:Arial,sans-serif;font-size:13px}
-.day-tab{display:inline-block;padding:4px 12px;border-radius:14px;cursor:pointer;font-family:Arial,sans-serif;font-size:12px;font-weight:600;margin:3px;background:#f3f4f6;color:#374151;border:1px solid #e5e7eb}
-.day-tab.sel{background:#b45309;color:white;border-color:#b45309}
-.day-panel{display:none}.day-panel.active{display:block}
-.src-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:6px;margin-bottom:5px;background:#f9f9f9;border:1px solid #eee}
-.src-btn{padding:4px 12px;border-radius:10px;border:none;font-size:11px;font-weight:600;color:white;text-decoration:none;display:inline-block}
-.dl-row{display:flex;gap:6px;margin-bottom:6px}
-.dl-row button{flex:1;padding:7px 4px;border:none;border-radius:6px;font-family:Arial,sans-serif;font-size:11px;font-weight:600;cursor:pointer;color:white}
-.scrape-btn{background:#16a34a;color:white;border:none;border-radius:8px;padding:10px 18px;font-family:Arial,sans-serif;font-size:13px;font-weight:700;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
-.scrape-btn:hover{background:#15803d}
-.scrape-btn:disabled{background:#6b7280;cursor:not-allowed}
-.status-msg{font-family:Arial,sans-serif;font-size:12px;margin-top:8px;padding:8px 10px;border-radius:6px;display:none}
-.token-input{width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-family:monospace;font-size:11px;margin-bottom:8px;color:#374151}
-.token-input:focus{outline:none;border-color:#16a34a}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Georgia, serif; background: #f5f5f0; color: #222; padding: 16px; }
+.hdr { background: #1a1a2e; color: white; padding: 18px 24px; border-radius: 8px; margin-bottom: 16px; }
+.hdr h1 { font-size: 21px; margin-bottom: 3px; }
+.hdr p { color: #aaa; font-size: 13px; font-family: Arial, sans-serif; }
+.nav { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.tab { padding: 8px 16px; border-radius: 20px; border: none; cursor: pointer; font-family: Arial, sans-serif; font-size: 13px; font-weight: 600; }
+.tab:hover { opacity: .85; }
+.panel { display: none; }
+.panel.active { display: block; }
+.layout { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+@media(max-width: 700px) { .layout { grid-template-columns: 1fr; } }
+.card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.card-sm { background: white; border-radius: 8px; padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+.ctitle { font-size: 17px; font-weight: bold; border-left: 5px solid; padding-left: 12px; margin-bottom: 13px; }
+.stitle { font-size: 13px; font-weight: 700; font-family: Arial, sans-serif; color: #374151; margin-bottom: 10px; }
+.badge { font-family: Arial, sans-serif; font-size: 11px; background: #f3f4f6; color: #555; padding: 2px 9px; border-radius: 12px; margin-left: 6px; font-weight: normal; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead tr { background: #f0f0f0; }
+th { padding: 7px 9px; text-align: left; font-family: Arial, sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; color: #555; }
+td { padding: 8px 9px; border-bottom: 1px solid #eee; vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: #fafafa; }
+a.vl { text-decoration: none; font-size: 11px; font-family: Arial, sans-serif; padding: 2px 9px; border-radius: 8px; color: white; }
+.empty { color: #999; font-style: italic; padding: 8px 0; font-family: Arial, sans-serif; font-size: 13px; }
+.day-tab { display: inline-block; padding: 4px 12px; border-radius: 14px; cursor: pointer; font-family: Arial, sans-serif; font-size: 12px; font-weight: 600; margin: 3px; background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+.day-tab.sel { background: #b45309; color: white; border-color: #b45309; }
+.day-panel { display: none; }
+.day-panel.active { display: block; }
+.src-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 6px; margin-bottom: 5px; background: #f9f9f9; border: 1px solid #eee; }
+.src-btn { padding: 4px 12px; border-radius: 10px; border: none; font-size: 11px; font-weight: 600; color: white; text-decoration: none; display: inline-block; }
+.dl-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.dl-row button { flex: 1; padding: 7px 4px; border: none; border-radius: 6px; font-family: Arial, sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; color: white; }
+.scrape-btn { background: #16a34a; color: white; border: none; border-radius: 8px; padding: 10px 18px; font-family: Arial, sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.scrape-btn:hover { background: #15803d; }
+.scrape-btn:disabled { background: #6b7280; cursor: not-allowed; }
+.status-msg { font-family: Arial, sans-serif; font-size: 12px; margin-top: 8px; padding: 8px 10px; border-radius: 6px; display: none; }
+.token-input { width: 100%; padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; margin-bottom: 8px; color: #374151; }
+.token-input:focus { outline: none; border-color: #16a34a; }
+.loading { text-align: center; padding: 60px 20px; font-family: Arial, sans-serif; color: #888; font-size: 14px; }
 </style>
 </head>
 <body>
+
 <div class="hdr">
   <div>
     <h1>SC Obituary Dashboard</h1>
-    <p>Greenville &nbsp;·&nbsp; Spartanburg &nbsp;·&nbsp; Anderson &nbsp;|&nbsp; Updated: 2026-04-18</p>
+    <p id="subtitle">Greenville &nbsp;·&nbsp; Spartanburg &nbsp;·&nbsp; Anderson</p>
   </div>
 </div>
+
 <div class="nav">
   <button class="tab" style="background:#374151;color:white" onclick="show('all')">Today — All</button>
   <button class="tab" style="background:#2563eb;color:white" onclick="show('gvl')">Greenville</button>
@@ -60,10 +65,10 @@ a.vl{text-decoration:none;font-size:11px;font-family:Arial,sans-serif;padding:2p
   <button class="tab" style="background:#e5e7eb;color:#374151;margin-left:auto" onclick="show('src')">Sources</button>
 </div>
 
-<div id="p-all"  class="panel active"></div>
-<div id="p-gvl"  class="panel"></div>
-<div id="p-spt"  class="panel"></div>
-<div id="p-and"  class="panel"></div>
+<div id="p-all" class="panel active"><div class="loading">Loading obituaries...</div></div>
+<div id="p-gvl" class="panel"><div class="loading">Loading...</div></div>
+<div id="p-spt" class="panel"><div class="loading">Loading...</div></div>
+<div id="p-and" class="panel"><div class="loading">Loading...</div></div>
 
 <div id="p-hist" class="panel">
   <div class="layout">
@@ -111,184 +116,242 @@ a.vl{text-decoration:none;font-size:11px;font-family:Arial,sans-serif;padding:2p
 </div>
 
 <script>
-const C=['Greenville','Spartanburg','Anderson'];
-const CLR={Greenville:'#2563eb',Spartanburg:'#7c3aed',Anderson:'#059669'};
-let H={};
-fetch('sc_obituaries_history.json?v='+Date.now())
-  .then(r=>r.json())
-  .then(data=>{ H=data; renderToday(); renderHistory(); })
-  .catch(e=>{ document.body.innerHTML='<div style="padding:40px;font-family:Arial;color:red">Error loading data: '+e+'</div>'; });
-const REPO='ownmidwest/sc-obituaries';
-const WORKFLOW='daily_scrape.yml';
+var C = ['Greenville','Spartanburg','Anderson'];
+var CLR = {Greenville:'#2563eb', Spartanburg:'#7c3aed', Anderson:'#059669'};
+var REPO = 'ownmidwest/sc-obituaries';
+var WORKFLOW = 'daily_scrape.yml';
+var H = {};
 
-function show(n){
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+function show(n) {
+  document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); });
   document.getElementById('p-'+n).classList.add('active');
 }
 
-function tbl(entries,county){
-  if(!entries||!entries.length) return '<p class="empty">No obituaries found today.</p>';
-  const c=CLR[county]||'#333';
-  return '<table><thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Source</th><th>Link</th></tr></thead><tbody>'
-    +entries.map(e=>'<tr><td><strong>'+e.name+'</strong></td><td style="color:#666;font-size:12px;white-space:nowrap">'+(e.date||'&mdash;')+'</td><td style="color:#666;font-size:12px">'+e.location+'</td><td style="color:#666;font-size:12px">'+e.source+'</td><td>'+(e.link?'<a class="vl" style="background:'+c+'" href="'+e.link+'" target="_blank">View</a>':'&mdash;')+'</td></tr>').join('')
-    +'</tbody></table>';
+function fmt(d) {
+  var p = d.split('-');
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return months[parseInt(p[1])-1] + ' ' + p[2];
 }
 
-function fmt(d){
-  var p=d.split('-');
-  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+p[1]-1]+' '+p[2];
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function toCSV(rows,extra){
-  var hdr=extra?'Name,Date,Location,County,Source,Link,Scraped Date':'Name,Date,Location,County,Source,Link';
-  return [hdr].concat(rows.map(function(e){
-    var b=[e.name,e.date||'',e.location,e.county,e.source,e.link||''];
-    if(extra)b.push(e.scraped_date||'');
-    return b.map(function(v){return'"'+String(v).replace(/"/g,'""')+'"';}).join(',');
-  })).join('
-');
+function tbl(entries, county) {
+  if (!entries || !entries.length) return '<p class="empty">No obituaries found.</p>';
+  var c = CLR[county] || '#333';
+  var rows = entries.map(function(e) {
+    var link = e.link ? '<a class="vl" style="background:'+c+'" href="'+esc(e.link)+'" target="_blank">View</a>' : '&mdash;';
+    var fam = e.family ? esc(e.family) : '&mdash;';
+    return '<tr><td><strong>'+esc(e.name)+'</strong></td>'
+      +'<td style="color:#666;font-size:12px;white-space:nowrap">'+esc(e.date||'&mdash;')+'</td>'
+      +'<td style="color:#666;font-size:12px">'+esc(e.location)+'</td>'
+      +'<td style="color:#666;font-size:12px;font-style:italic">'+fam+'</td>'
+      +'<td style="color:#666;font-size:12px">'+esc(e.source)+'</td>'
+      +'<td>'+link+'</td></tr>';
+  }).join('');
+  return '<table><thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Survived By</th><th>Source</th><th>Link</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
 
-function dlFile(content,name,mime){
-  var a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([content],{type:mime}));
-  a.download=name;a.click();URL.revokeObjectURL(a.href);
+function toCSV(rows, extra) {
+  var hdr = extra ? 'Name,Date,Location,Family,County,Source,Link,Scraped Date' : 'Name,Date,Location,Family,County,Source,Link';
+  var lines = rows.map(function(e) {
+    var b = [e.name, e.date||'', e.location, e.family||'', e.county, e.source, e.link||''];
+    if (extra) b.push(e.scraped_date||'');
+    return b.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',');
+  });
+  return [hdr].concat(lines).join('\r\n');
 }
 
-function dlCSV(d,co){
-  var data=H[d];if(!data)return;
-  var rows=co?(data[co]||[]):C.reduce(function(a,c){return a.concat(data[c]||[]);}, []);
-  dlFile(toCSV(rows),'sc_obits_'+d+'_'+(co||'all')+'.csv','text/csv');
+function dlFile(content, name, mime) {
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type:mime}));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
-function dlJSON(d,co){
-  var data=H[d];if(!data)return;
-  var out=co?{date:d,county:co,entries:data[co]||[]}:{date:d,counties:data};
-  dlFile(JSON.stringify(out,null,2),'sc_obits_'+d+'_'+(co||'all')+'.json','application/json');
+function dlCSV(d, co) {
+  var data = H[d]; if (!data) return;
+  var rows = co ? (data[co]||[]) : C.reduce(function(a,c){ return a.concat(data[c]||[]); }, []);
+  dlFile(toCSV(rows), 'sc_obits_'+d+'_'+(co||'all')+'.csv', 'text/csv');
 }
 
-function dlWeekCSV(){
-  var rows=[];
-  Object.keys(H).forEach(function(d){
-    C.forEach(function(co){
-      (H[d][co]||[]).forEach(function(e){rows.push(Object.assign({},e,{scraped_date:d}));});
+function dlJSON(d, co) {
+  var data = H[d]; if (!data) return;
+  var out = co ? {date:d,county:co,entries:data[co]||[]} : {date:d,counties:data};
+  dlFile(JSON.stringify(out,null,2), 'sc_obits_'+d+'_'+(co||'all')+'.json', 'application/json');
+}
+
+function dlWeekCSV() {
+  var rows = [];
+  Object.keys(H).forEach(function(d) {
+    C.forEach(function(co) {
+      (H[d][co]||[]).forEach(function(e) { rows.push(Object.assign({},e,{scraped_date:d})); });
     });
   });
-  dlFile(toCSV(rows,true),'sc_obits_7day.csv','text/csv');
+  dlFile(toCSV(rows,true), 'sc_obits_7day.csv', 'text/csv');
 }
 
-function dlWeekJSON(){dlFile(JSON.stringify(H,null,2),'sc_obits_7day.json','application/json');}
+function dlWeekJSON() {
+  dlFile(JSON.stringify(H,null,2), 'sc_obits_7day.json', 'application/json');
+}
 
-function sidebar(dateStr){
-  var days=Object.keys(H).sort().reverse();
-  var totalToday=dateStr?C.reduce(function(n,co){return n+(H[dateStr][co]||[]).length;},0):0;
-  var totalWeek=Object.keys(H).reduce(function(n,d){return n+C.reduce(function(m,co){return m+(H[d][co]||[]).length;},0);},0);
-  var dayRows=days.map(function(d){
-    var cnt=C.reduce(function(n,co){return n+(H[d][co]||[]).length;},0);
+function sidebar(dateStr) {
+  var days = Object.keys(H).sort().reverse();
+  var totalToday = dateStr ? C.reduce(function(n,co){ return n+(H[dateStr][co]||[]).length; }, 0) : 0;
+  var totalWeek = Object.keys(H).reduce(function(n,d){ return n+C.reduce(function(m,co){ return m+(H[d][co]||[]).length; },0); }, 0);
+
+  var dayRows = days.map(function(d) {
+    var cnt = C.reduce(function(n,co){ return n+(H[d][co]||[]).length; }, 0);
     return '<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f0f0f0">'
       +'<div style="font-family:Arial,sans-serif;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px;">'+fmt(d)+' <span style="font-weight:normal;color:#888;">('+cnt+')</span></div>'
-      +'<div class="dl-row"><button onclick="dlCSV(''+d+'','')" style="background:#0891b2;">CSV All</button><button onclick="dlJSON(''+d+'','')" style="background:#0e7490;">JSON All</button></div>'
-      +'<div class="dl-row">'+C.map(function(co){return '<button onclick="dlCSV(''+d+'',''+co+'')" style="background:'+CLR[co]+';font-size:10px;">'+co.substring(0,4)+'</button>';}).join('')+'</div>'
-      +'</div>';
+      +'<div class="dl-row">'
+      +'<button onclick="dlCSV(\''+d+'\',\'\')" style="background:#0891b2;">CSV All</button>'
+      +'<button onclick="dlJSON(\''+d+'\',\'\')" style="background:#0e7490;">JSON All</button>'
+      +'</div>'
+      +'<div class="dl-row">'
+      +C.map(function(co){ return '<button onclick="dlCSV(\''+d+'\',\''+co+'\')" style="background:'+CLR[co]+';font-size:10px;">'+co.substring(0,4)+'</button>'; }).join('')
+      +'</div></div>';
   }).join('');
 
   return '<div class="card-sm" style="border:2px solid #16a34a;">'
     +'<div class="stitle">Run Scraper Now</div>'
     +'<input class="token-input" id="gh-token" type="password" placeholder="Paste GitHub token here"/>'
-    +'<button class="scrape-btn" id="scrape-btn" onclick="triggerScrape()">&#9654; Run Scraper</button>'
+    +'<button class="scrape-btn" id="scrape-btn" onclick="triggerScrape()">&#9654;&nbsp; Run Scraper</button>'
     +'<div id="scrape-status" class="status-msg"></div>'
-    +'<p style="font-family:Arial,sans-serif;font-size:11px;color:#999;margin-top:8px;line-height:1.5;">Needs a GitHub token with <strong>repo</strong> scope.<br><a href="https://github.com/settings/tokens/new?scopes=repo&description=SC+Obituary+Scraper" target="_blank" style="color:#16a34a;">Create token here &#8599;</a></p>'
+    +'<p style="font-family:Arial,sans-serif;font-size:11px;color:#999;margin-top:8px;line-height:1.6;">Needs a GitHub token with <strong>repo</strong> scope.<br>'
+    +'<a href="https://github.com/settings/tokens/new?scopes=repo&description=SC+Obituary+Scraper" target="_blank" style="color:#16a34a;">Create token here &#8599;</a></p>'
     +'</div>'
     +'<div class="card-sm">'
     +'<div class="stitle">Download Today</div>'
     +'<p style="font-family:Arial,sans-serif;font-size:11px;color:#888;margin-bottom:8px;">'+(dateStr||'&mdash;')+' &nbsp;&middot;&nbsp; '+totalToday+' obituaries</p>'
-    +'<div class="dl-row"><button onclick="dlCSV(''+dateStr+'','')" style="background:#0891b2;">CSV All</button><button onclick="dlJSON(''+dateStr+'','')" style="background:#0e7490;">JSON All</button></div>'
-    +'<div class="dl-row">'+C.map(function(co){return '<button onclick="dlCSV(''+dateStr+'',''+co+'')" style="background:'+CLR[co]+';">'+co+'</button>';}).join('')+'</div>'
+    +'<div class="dl-row">'
+    +'<button onclick="dlCSV(\''+dateStr+'\',\'\')" style="background:#0891b2;">CSV All</button>'
+    +'<button onclick="dlJSON(\''+dateStr+'\',\'\')" style="background:#0e7490;">JSON All</button>'
     +'</div>'
+    +'<div class="dl-row">'
+    +C.map(function(co){ return '<button onclick="dlCSV(\''+dateStr+'\',\''+co+'\')" style="background:'+CLR[co]+';">'+co+'</button>'; }).join('')
+    +'</div></div>'
     +'<div class="card-sm">'
     +'<div class="stitle">7-Day History Download</div>'
     +'<p style="font-family:Arial,sans-serif;font-size:11px;color:#888;margin-bottom:8px;">'+days.length+' days &nbsp;&middot;&nbsp; '+totalWeek+' total</p>'
-    +'<div class="dl-row"><button onclick="dlWeekCSV()" style="background:#b45309;">7-Day CSV</button><button onclick="dlWeekJSON()" style="background:#92400e;">7-Day JSON</button></div>'
-    +'</div>'
+    +'<div class="dl-row">'
+    +'<button onclick="dlWeekCSV()" style="background:#b45309;">7-Day CSV</button>'
+    +'<button onclick="dlWeekJSON()" style="background:#92400e;">7-Day JSON</button>'
+    +'</div></div>'
     +'<div class="card-sm">'
     +'<div class="stitle">Download by Day</div>'
     +dayRows
     +'</div>';
 }
 
-async function triggerScrape(){
-  var token=document.getElementById('gh-token').value.trim();
-  if(!token){showStatus('error','Please paste your GitHub token first.');return;}
-  var btn=document.getElementById('scrape-btn');
-  btn.disabled=true;btn.innerHTML='&#8987; Triggering...';
-  showStatus('info','Sending request to GitHub...');
-  try{
-    var res=await fetch('https://api.github.com/repos/'+REPO+'/actions/workflows/'+WORKFLOW+'/dispatches',{
-      method:'POST',
-      headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
-      body:JSON.stringify({ref:'main'})
+function renderAll() {
+  var days = Object.keys(H).sort().reverse();
+  if (!days.length) {
+    ['p-all','p-gvl','p-spt','p-and'].forEach(function(id){
+      document.getElementById(id).innerHTML = '<div class="loading">No data found.</div>';
     });
-    if(res.status===204){
-      showStatus('success','Scraper triggered! Wait ~2 minutes then refresh this page.');
-      btn.innerHTML='&#10003; Triggered!';
-      setTimeout(function(){btn.disabled=false;btn.innerHTML='&#9654; Run Scraper';},15000);
-    } else {
-      var err=await res.json().catch(function(){return {};});
-      showStatus('error','GitHub error '+res.status+': '+(err.message||'Check your token has repo scope.'));
-      btn.disabled=false;btn.innerHTML='&#9654; Run Scraper';
-    }
-  } catch(e){
-    showStatus('error','Network error — check your token and try again.');
-    btn.disabled=false;btn.innerHTML='&#9654; Run Scraper';
+    return;
   }
-}
 
-function showStatus(type,msg){
-  var el=document.getElementById('scrape-status');
-  var styles={success:'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',error:'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',info:'background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe'};
-  el.style.cssText=styles[type]+';display:block;';el.textContent=msg;
-}
+  var today = days[0];
+  var data = H[today];
+  document.getElementById('subtitle').textContent = 'Greenville \u00b7 Spartanburg \u00b7 Anderson | Updated: ' + today;
 
-function renderToday(){
-  var days=Object.keys(H).sort().reverse();
-  if(!days.length)return;
-  var today=days[0];var data=H[today];
-  var sb=sidebar(today);
-  var counties=C.map(function(co){
-    var e=data[co]||[];var c=CLR[co];
+  var sb = sidebar(today);
+
+  // Today All
+  var allCards = C.map(function(co) {
+    var e = data[co]||[]; var c = CLR[co];
     return '<div class="card"><div class="ctitle" style="border-color:'+c+';color:'+c+'">'+co+' County<span class="badge">'+e.length+' found</span></div>'+tbl(e,co)+'</div>';
   }).join('');
-  document.getElementById('p-all').innerHTML='<div class="layout"><div>'+counties+'</div><div>'+sb+'</div></div>';
-  [['gvl','Greenville'],['spt','Spartanburg'],['and','Anderson']].forEach(function(pair){
-    var id=pair[0],co=pair[1];
-    var e=data[co]||[];var c=CLR[co];
-    document.getElementById('p-'+id).innerHTML='<div class="layout"><div><div class="card"><div class="ctitle" style="border-color:'+c+';color:'+c+'">'+co+' County<span class="badge">'+e.length+' found</span></div>'+tbl(e,co)+'</div></div><div>'+sb+'</div></div>';
-  });
-  document.getElementById('src-sidebar').innerHTML=sb;
-}
+  document.getElementById('p-all').innerHTML = '<div class="layout"><div>'+allCards+'</div><div>'+sb+'</div></div>';
 
-function renderHistory(){
-  var days=Object.keys(H).sort().reverse();
-  if(!days.length)return;
-  document.getElementById('dtabs').innerHTML=days.map(function(d,i){
-    return '<span class="day-tab'+(i===0?' sel':'')+'" onclick="selDay(''+d+'',this)">'+fmt(d)+'</span>';
+  // Individual county tabs
+  [['gvl','Greenville'],['spt','Spartanburg'],['and','Anderson']].forEach(function(pair) {
+    var id = pair[0], co = pair[1];
+    var e = data[co]||[]; var c = CLR[co];
+    document.getElementById('p-'+id).innerHTML = '<div class="layout"><div>'
+      +'<div class="card"><div class="ctitle" style="border-color:'+c+';color:'+c+'">'+co+' County<span class="badge">'+e.length+' found</span></div>'+tbl(e,co)+'</div>'
+      +'</div><div>'+sb+'</div></div>';
+  });
+
+  document.getElementById('src-sidebar').innerHTML = sb;
+
+  // History tab
+  document.getElementById('dtabs').innerHTML = days.map(function(d,i) {
+    return '<span class="day-tab'+(i===0?' sel':'')+'" onclick="selDay(\''+d+'\',this)">'+fmt(d)+'</span>';
   }).join('');
-  document.getElementById('dbody').innerHTML=days.map(function(d,i){
-    var data=H[d];
-    var sections=C.map(function(co){
-      var e=data[co]||[];var c=CLR[co];
+  document.getElementById('dbody').innerHTML = days.map(function(d,i) {
+    var dd = H[d];
+    var sections = C.map(function(co) {
+      var e = dd[co]||[]; var c = CLR[co];
       return '<div style="margin-bottom:18px"><h3 style="color:'+c+';border-left:4px solid '+c+';padding-left:10px;margin-bottom:10px;font-size:15px">'+co+' County<span class="badge">'+e.length+'</span></h3>'+tbl(e,co)+'</div>';
     }).join('');
     return '<div id="day-'+d+'" class="day-panel'+(i===0?' active':'')+'">'+sections+'</div>';
   }).join('');
-  document.getElementById('hist-sidebar').innerHTML=sidebar(days[0]);
+  document.getElementById('hist-sidebar').innerHTML = sb;
 }
 
-function selDay(d,el){
-  document.querySelectorAll('.day-tab').forEach(function(t){t.classList.remove('sel');});
-  document.querySelectorAll('.day-panel').forEach(function(p){p.classList.remove('active');});
-  el.classList.add('sel');document.getElementById('day-'+d).classList.add('active');
+function selDay(d, el) {
+  document.querySelectorAll('.day-tab').forEach(function(t){ t.classList.remove('sel'); });
+  document.querySelectorAll('.day-panel').forEach(function(p){ p.classList.remove('active'); });
+  el.classList.add('sel');
+  document.getElementById('day-'+d).classList.add('active');
 }
 
+async function triggerScrape() {
+  var token = document.getElementById('gh-token').value.trim();
+  if (!token) { showStatus('error','Please paste your GitHub token first.'); return; }
+  var btn = document.getElementById('scrape-btn');
+  btn.disabled = true; btn.innerHTML = '&#8987;&nbsp; Triggering...';
+  showStatus('info','Sending request to GitHub...');
+  try {
+    var res = await fetch('https://api.github.com/repos/'+REPO+'/actions/workflows/'+WORKFLOW+'/dispatches', {
+      method: 'POST',
+      headers: {'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+      body: JSON.stringify({ref:'main'})
+    });
+    if (res.status === 204) {
+      showStatus('success','Scraper triggered! Wait 2 minutes then refresh this page.');
+      btn.innerHTML = '&#10003;&nbsp; Triggered!';
+      setTimeout(function(){ btn.disabled=false; btn.innerHTML='&#9654;&nbsp; Run Scraper'; }, 15000);
+    } else {
+      var err = await res.json().catch(function(){ return {}; });
+      showStatus('error','GitHub error '+res.status+': '+(err.message||'Check token has repo scope.'));
+      btn.disabled=false; btn.innerHTML='&#9654;&nbsp; Run Scraper';
+    }
+  } catch(e) {
+    showStatus('error','Network error — check your token and try again.');
+    btn.disabled=false; btn.innerHTML='&#9654;&nbsp; Run Scraper';
+  }
+}
+
+function showStatus(type, msg) {
+  var el = document.getElementById('scrape-status');
+  var bg = {success:'#dcfce7',error:'#fee2e2',info:'#dbeafe'};
+  var fg = {success:'#166534',error:'#991b1b',info:'#1e40af'};
+  var bd = {success:'#bbf7d0',error:'#fecaca',info:'#bfdbfe'};
+  el.style.cssText = 'display:block;background:'+bg[type]+';color:'+fg[type]+';border:1px solid '+bd[type]+';padding:8px 10px;border-radius:6px;font-family:Arial,sans-serif;font-size:12px;margin-top:8px;';
+  el.textContent = msg;
+}
+
+// Load the history JSON file
+fetch('sc_obituaries_history.json?v=' + Date.now())
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  })
+  .then(function(data) {
+    H = data;
+    renderAll();
+  })
+  .catch(function(e) {
+    ['p-all','p-gvl','p-spt','p-and'].forEach(function(id){
+      document.getElementById(id).innerHTML = '<div class="card"><p style="font-family:Arial,sans-serif;color:#991b1b;padding:10px;">Could not load data file: ' + e + '<br><br>Make sure sc_obituaries_history.json exists in the docs/ folder and the scraper has run at least once.</p></div>';
+    });
+  });
 </script>
-</body></html>
+</body>
+</html>
