@@ -55,43 +55,36 @@ LEGACY_PAPERS = {
 # "fetch_full": False = listing page already has full text (default, faster)
 FUNERAL_HOMES = {
     "Greenville": [
-        {"name": "Watkins Garrett & Woods Mortuary", "url": "https://www.wgwmortuary.com/obituaries"},
+        {"name": "Greenville Journal",               "url": "https://obits.greenvillejournal.com/"},
+        {"name": "Echovita Greenville",              "url": "https://www.echovita.com/us/obituaries/sc/greenville", "fetch_full": True},
         {"name": "Heritage Funeral Home Simpsonville", "url": "https://cannonbyrd.com/obituaries/"},
-        {"name": "Cannon-Byrd Funeral Home",          "url": "https://cannonbyrd.com/obituaries/"},
-        {"name": "Thomas McAfee Funeral Homes",      "url": "https://www.thomasmcafee.com/obituaries/obituary-listings", "fetch_full": True},
-        {"name": "Mackey Mortuary",                  "url": "https://www.mackeymortuary.com/obituaries", "fetch_full": True},
-        {"name": "Robinson Funeral Homes",           "url": "https://www.robinsonfuneralhomes.com/obituaries"},
-        {"name": "Cremation Society of SC",          "url": "https://www.cremationsocietyofsc.com/obituaries"},
         {"name": "Dignity Memorial Greenville",      "url": "https://www.dignitymemorial.com/obituaries/greenville-sc"},
-        {"name": "Beasley Funeral Home",             "url": "https://www.beasleyfuneralhome.com/obituaries", "fetch_full": True},
         {"name": "Hatcher Funeral Home",             "url": "https://www.hatcherfuneralhome.com/obituaries", "fetch_full": True},
-        {"name": "Legacy.com Greenville County",     "url": "https://www.legacy.com/us/obituaries/local/south-carolina/greenville-county"},
-        {"name": "Legacy.com Greenville Area",       "url": "https://www.legacy.com/us/obituaries/local/south-carolina/greenville-area"},
+        {"name": "Watkins Garrett & Woods Mortuary", "url": "https://www.wgwmortuary.com/obituaries"},
+        {"name": "Thomas McAfee Funeral Homes",      "url": "https://www.thomasmcafee.com/obituaries/obituary-listings", "fetch_full": True},
+        {"name": "Cremation Society of SC",          "url": "https://www.cremationsocietyofsc.com/obituaries"},
+        {"name": "Beasley Funeral Home",             "url": "https://www.beasleyfuneralhome.com/obituaries", "fetch_full": True},
+        {"name": "Graceland Mortuary",               "url": "https://www.gracelandmortuary.com/obituaries"},
     ],
     "Spartanburg": [
-        {"name": "Floyd Mortuary",                   "url": "https://www.floydmortuary.com/listings"},
+        {"name": "Echovita Spartanburg",             "url": "https://www.echovita.com/us/obituaries/sc/spartanburg", "fetch_full": True},
         {"name": "Bobo Funeral Chapel",              "url": "https://www.bobofuneralchapel.com/listings",     "fetch_full": True},
         {"name": "Roberts Funeral Home",             "url": "https://www.robertsfhsc.com/listings",           "fetch_full": True},
-        {"name": "E.L. Collins Funeral Home",        "url": "https://www.elcollinsfh.com/spantanburg-sc-obituaries"},
         {"name": "Community Mortuary",               "url": "https://www.communitymortuaryinc.com/listings",  "fetch_full": True},
-        {"name": "Seawright Funeral Home",           "url": "https://seawright-funeralhome.com/obituaries"},
-        {"name": "J.W. Woodward Funeral Home",       "url": "https://www.articobits.com/obituaries/jw-woodward-fh/"},
         {"name": "White Columns Funeral Service",    "url": "https://www.whitecolumnsfuneralservice.com/listings", "fetch_full": True},
-        {"name": "Legacy.com Spartanburg County",    "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-county"},
-        {"name": "Legacy.com Spartanburg Area",      "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-area"},
-        {"name": "Legacy.com Herald-Journal",        "url": "https://www.legacy.com/us/obituaries/spartanburg/today"},
+        {"name": "Seawright Funeral Home",           "url": "https://seawright-funeralhome.com/obituaries"},
+        {"name": "Floyd Mortuary",                   "url": "https://www.floydmortuary.com/listings"},
+        {"name": "E.L. Collins Funeral Home",        "url": "https://www.elcollinsfh.com/spantanburg-sc-obituaries"},
     ],
     "Anderson": [
+        {"name": "Echovita Anderson",                "url": "https://www.echovita.com/us/obituaries/sc/anderson", "fetch_full": True},
+        {"name": "Marcus D. Brown Funeral Home",     "url": "https://www.marcusdbrownfuneralhome.com/listings", "fetch_full": True},
         {"name": "Sosebee Mortuary",                 "url": "https://sosebeemortuary.com/obituaries"},
         {"name": "Anderson Simple Cremations",       "url": "https://andersonsimplecremations.com/obituary/"},
         {"name": "D.B. Walker Funeral Services",     "url": "https://www.dbwalkerfuneralservices.com/listings", "fetch_full": True},
-        {"name": "Marcus D. Brown Funeral Home",     "url": "https://www.marcusdbrownfuneralhome.com/listings", "fetch_full": True},
         {"name": "Johnson Funeral Home",             "url": "https://www.johnsonfuneralhm.com/listings",       "fetch_full": True},
         {"name": "Rich-Colonial Funeral Home",       "url": "https://www.rich-colonial-funeral-home.com/listings", "fetch_full": True},
         {"name": "McDougald Funeral Home",           "url": "https://www.mcdougaldfuneralhome.com/obituaries/obituary-listings", "fetch_full": True},
-        {"name": "Sullivan-King Mortuary",           "url": "https://www.sullivanking.com/obits",              "fetch_full": True},
-        {"name": "Legacy.com Anderson County",       "url": "https://www.legacy.com/us/obituaries/local/south-carolina/anderson-county"},
-        {"name": "Legacy.com Anderson Area",         "url": "https://www.legacy.com/us/obituaries/local/south-carolina/anderson"},
     ],
 }
 
@@ -811,7 +804,45 @@ def fetch_funeral_home(name, url, county, fetch_full=False):
     if results:
         return results
 
-    # ── Strategy 3: bold/strong tags anywhere on page ──
+    # ── Strategy 0a: Greenville Journal (WordPress h2 + full card text) ──
+    if "greenvillejournal.com" in url:
+        for heading in soup.find_all("h2"):
+            n = heading.get_text(strip=True)
+            if not is_real_name(n):
+                continue
+            # Get the parent article/section block for full text
+            block = heading.find_parent(["article", "section", "div"])
+            card_text = block.get_text(" ", strip=True) if block else ""
+            # Get the "Visit Obituary" external link
+            ext_link = None
+            if block:
+                for a in block.find_all("a", href=True):
+                    if "visit" in a.get_text(strip=True).lower() or "obituary" in a.get("href","").lower():
+                        ext_link = a["href"]
+                        break
+            link = ext_link or make_link(heading)
+            add(n, link, make_date(heading, card_text), card_text)
+        if results:
+            return results
+
+    # ── Strategy 0b: Echovita — links like /us/obituaries/sc/city/name-id ──
+    if "echovita.com" in url:
+        for a in soup.find_all("a", href=re.compile(r"/us/obituaries/sc/\w+/\w+-\d+", re.I)):
+            n = a.get("title", "").replace("Read the obituary of ", "").strip()
+            if not n:
+                n = a.get_text(strip=True)
+            if not is_real_name(n):
+                continue
+            href = a.get("href", "")
+            link = ("https://www.echovita.com" + href) if href.startswith("/") else href
+            # Date is in nearby text sibling
+            parent = a.find_parent(["div", "li", "article"])
+            card_text = parent.get_text(" ", strip=True) if parent else ""
+            add(n, link, make_date(a, card_text), card_text)
+        if results:
+            return results
+
+
     for bold in soup.find_all(["strong", "b"]):
         n = bold.get_text(strip=True)
         if not is_real_name(n):
