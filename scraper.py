@@ -557,42 +557,58 @@ def fetch_funeral_home(name, url, county):
             context_text
         ) or "See source"
 
-    def extract_family(text):
-        """Pull names after survived-by keywords."""
+    def extract_family(text, deceased_name=""):
+        """Pull family member names after survived-by keywords, excluding the deceased."""
         family = []
         if not text:
             return ""
-        
+
+        # Build a set of name parts to exclude — the deceased's own first, last, middle names
+        exclude = set()
+        if deceased_name:
+            for part in deceased_name.replace(",", " ").split():
+                w = part.strip(".\'\"-").lower()
+                if len(w) > 1:
+                    exclude.add(w)
+
         # Multiple patterns for "survived by" sections
+        # Use [^.] patterns that stop at sentence-ending periods but not abbreviations like Jr.
         patterns = [
-            r'(?:is|are)\s+survived\s+by[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|Born|In lieu|Visitation|\Z)',
-            r'survivors?\s+include[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|Born|In lieu|\Z)',
-            r'leaves?\s+to\s+cherish[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|\Z)',
-            r'leaves?\s+behind[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|\Z)',
-            r'surviving\s+are[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|\Z)',
-            r'those\s+left\s+to\s+cherish[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|\Z)',
+            r'(?:is|are)\s+survived\s+by[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|Born|In lieu|Visitation|\Z)',
+            r'survivors?\s+include[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|Born|In lieu|\Z)',
+            r'leaves?\s+to\s+cherish[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|\Z)',
+            r'leaves?\s+behind[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|\Z)',
+            r'surviving\s+are[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|\Z)',
+            r'those\s+left\s+to\s+cherish[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|\Z)',
         ]
-        
+
         chunks = []
         for pat in patterns:
             m = re.search(pat, text, re.I | re.S)
             if m:
                 chunks.append(m.group(1))
-        
-        # Also grab the full text if short enough (listing page previews)
+
+        # Use full text if short enough and no pattern matched (listing previews)
         if not chunks and len(text) < 800:
             chunks.append(text)
-        
+
         for chunk in chunks:
-            # Extract names — capitalized word pairs
             found = re.findall(r'\b([A-Z][a-z]+(?:\s+(?:[A-Z][a-z]+|[A-Z]\.)){1,3})\b', chunk)
             for fn in found:
                 fn = fn.strip()
-                if is_real_name(fn) and fn not in family:
-                    family.append(fn)
-        
-        # Remove the deceased's own name if it crept in
-        return ", ".join(family[:8])  # cap at 8 names
+                if not is_real_name(fn):
+                    continue
+                if fn in family:
+                    continue
+                # Exclude if any word matches the deceased's name parts
+                # BUT allow Jr./Sr./II/III/IV — these are different people (sons, etc.)
+                fn_parts = set(w.strip(".\'\"-").lower() for w in fn.split() if len(w) > 1)
+                has_suffix = fn_parts & {"jr", "sr", "ii", "iii", "iv", "v"}
+                if (fn_parts & exclude) and not has_suffix:
+                    continue
+                family.append(fn)
+
+        return ", ".join(family[:8])
 
     def add(n, link, obit_date, card_text=""):
         n = n.strip()
@@ -602,8 +618,8 @@ def fetch_funeral_home(name, url, county):
         # Location: try to find city, ST in card text
         loc_match = re.search(r'\b([A-Z][a-z]+(?: [A-Z][a-z]+)*),\s*([A-Z]{2})\b', card_text)
         location = loc_match.group(0) if loc_match else f"{county} County, SC"
-        # Family members from card text
-        family = extract_family(card_text)
+        # Family members — pass the deceased's name so it gets excluded
+        family = extract_family(card_text, deceased_name=n)
         results.append({
             "name": n, "date": obit_date, "location": location,
             "family": family, "source": name, "county": county, "link": link,
