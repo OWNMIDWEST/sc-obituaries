@@ -142,19 +142,21 @@ function tbl(entries, county) {
   var c = CLR[county] || '#333';
   var rows = entries.map(function(e) {
     var link = e.link ? '<a class="vl" style="background:'+c+'" href="'+esc(e.link)+'" target="_blank">View</a>' : '&mdash;';
+    var fam = e.family ? esc(e.family) : '&mdash;';
     return '<tr><td><strong>'+esc(e.name)+'</strong></td>'
       +'<td style="color:#666;font-size:12px;white-space:nowrap">'+esc(e.date||'&mdash;')+'</td>'
       +'<td style="color:#666;font-size:12px">'+esc(e.location)+'</td>'
+      +'<td style="color:#666;font-size:12px;font-style:italic">'+fam+'</td>'
       +'<td style="color:#666;font-size:12px">'+esc(e.source)+'</td>'
       +'<td>'+link+'</td></tr>';
   }).join('');
-  return '<table><thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Source</th><th>Link</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  return '<table><thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Survived By</th><th>Source</th><th>Link</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
 
 function toCSV(rows, extra) {
-  var hdr = extra ? 'Name,Date,Location,County,Source,Link,Scraped Date' : 'Name,Date,Location,County,Source,Link';
+  var hdr = extra ? 'Name,Date,Location,Family,County,Source,Link,Scraped Date' : 'Name,Date,Location,Family,County,Source,Link';
   var lines = rows.map(function(e) {
-    var b = [e.name, e.date||'', e.location, e.county, e.source, e.link||''];
+    var b = [e.name, e.date||'', e.location, e.family||'', e.county, e.source, e.link||''];
     if (extra) b.push(e.scraped_date||'');
     return b.map(function(v){ return '"'+String(v).replace(/"/g,'""')+'"'; }).join(',');
   });
