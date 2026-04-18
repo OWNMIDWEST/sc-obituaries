@@ -64,7 +64,7 @@ FUNERAL_HOMES = {
     ],
     "Spartanburg": [
         # Confirmed working sources with real obituaries
-        {"name": "Floyd Mortuary",                   "url": "https://www.floydmortuary.com/obituaries"},
+        {"name": "Floyd Mortuary",                   "url": "https://www.floydmortuary.com/listings"},
         {"name": "Bobo Funeral Chapel",              "url": "https://www.bobofuneralchapel.com/listings"},
         {"name": "Roberts Funeral Home",             "url": "https://www.robertsfhsc.com/listings"},
         {"name": "E.L. Collins Funeral Home",        "url": "https://www.elcollinsfh.com/obituaries"},
@@ -546,19 +546,39 @@ def fetch_funeral_home(name, url, county):
     def extract_family(text):
         """Pull names after survived-by keywords."""
         family = []
-        # Find "survived by his/her/their ... wife/husband/son/daughter/children"
-        surv = re.search(
-            r'survived?\s+by[:\s]+(.{10,300}?)(?:\.|He was|She was|Services|Funeral|Born|\Z)',
-            text, re.I | re.S
-        )
-        if surv:
-            chunk = surv.group(1)
-            # Extract individual names — look for capitalized pairs
-            found = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', chunk)
+        if not text:
+            return ""
+        
+        # Multiple patterns for "survived by" sections
+        patterns = [
+            r'(?:is|are)\s+survived\s+by[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|Born|In lieu|Visitation|\Z)',
+            r'survivors?\s+include[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|Born|In lieu|\Z)',
+            r'leaves?\s+to\s+cherish[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|\Z)',
+            r'leaves?\s+behind[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|\Z)',
+            r'surviving\s+are[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|\Z)',
+            r'those\s+left\s+to\s+cherish[:\s]+(.{10,500}?)(?:\.|\n\n|Services|Funeral|\Z)',
+        ]
+        
+        chunks = []
+        for pat in patterns:
+            m = re.search(pat, text, re.I | re.S)
+            if m:
+                chunks.append(m.group(1))
+        
+        # Also grab the full text if short enough (listing page previews)
+        if not chunks and len(text) < 800:
+            chunks.append(text)
+        
+        for chunk in chunks:
+            # Extract names — capitalized word pairs
+            found = re.findall(r'\b([A-Z][a-z]+(?:\s+(?:[A-Z][a-z]+|[A-Z]\.)){1,3})\b', chunk)
             for fn in found:
+                fn = fn.strip()
                 if is_real_name(fn) and fn not in family:
                     family.append(fn)
-        return ", ".join(family[:6])  # cap at 6 names
+        
+        # Remove the deceased's own name if it crept in
+        return ", ".join(family[:8])  # cap at 8 names
 
     def add(n, link, obit_date, card_text=""):
         n = n.strip()
