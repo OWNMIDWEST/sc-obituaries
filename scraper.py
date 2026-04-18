@@ -49,25 +49,29 @@ LEGACY_PAPERS = {
     "Anderson":    ["independentmail"],
 }
 
-# Funeral home sites per county
+# Funeral home sites per county — verified working URLs
 FUNERAL_HOMES = {
     "Greenville": [
-        {"name": "Robinson Funeral Homes",      "url": "https://www.robinsonfuneralhomes.com/obituaries"},
-        {"name": "Geo. W. Harley Funeral Home", "url": "https://www.georgewharleyfuneralhome.com/obituaries"},
         {"name": "Mackey Mortuary",             "url": "https://www.mackeymortuary.com/obituaries"},
         {"name": "Thomas McAfee Funeral Homes", "url": "https://www.thomasmcafee.com/obituaries"},
+        {"name": "Legacy.com Greenville area",  "url": "https://www.legacy.com/us/obituaries/local/south-carolina/greenville-area"},
     ],
     "Spartanburg": [
-        {"name": "Floyd's Mortuary",        "url": "https://www.floydsmortuary.com/obituaries"},
-        {"name": "Spartanburg Mortuary",    "url": "https://www.spartanburgmortuary.com/obituaries"},
-        {"name": "Calvary Mortuary",        "url": "https://www.calvarymortuary.com/obituaries"},
-        {"name": "Boiling Springs Funeral", "url": "https://www.boilingspringsfuneralhome.com/obituaries"},
+        {"name": "Floyd Mortuary",              "url": "https://www.floydmortuary.com/obituaries"},
+        {"name": "Community Mortuary",          "url": "https://www.communitymortuaryinc.com/listings"},
+        {"name": "Bobo Funeral Chapel",         "url": "https://www.bobofuneralchapel.com/listings"},
+        {"name": "Roberts Funeral Home",        "url": "https://www.robertsfhsc.com/listings"},
+        {"name": "E.L. Collins Funeral Home",   "url": "https://www.elcollinsfh.com/obituaries"},
+        {"name": "Legacy.com Spartanburg area", "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-area"},
     ],
     "Anderson": [
-        {"name": "McDougald Funeral Home",   "url": "https://www.mcdougaldfuneralhome.com/obituaries"},
-        {"name": "Sullivan-King Mortuary",   "url": "https://www.sullivankingmortuary.com/obituaries"},
-        {"name": "Whitfield Mortuary",       "url": "https://www.whitfieldmortuary.com/obituaries"},
-        {"name": "Rainey-Mathis Funeral",    "url": "https://www.raineymathisfuneralhome.com/obituaries"},
+        {"name": "McDougald Funeral Home",      "url": "https://www.mcdougaldfuneralhome.com/obituaries/obituary-listings"},
+        {"name": "Marcus D. Brown Funeral Home","url": "https://www.marcusdbrownfuneralhome.com/listings"},
+        {"name": "D.B. Walker Funeral Services","url": "https://www.dbwalkerfuneralservices.com/listings"},
+        {"name": "Johnson Funeral Home",        "url": "https://www.johnsonfuneralhm.com/listings"},
+        {"name": "Sosebee Mortuary",            "url": "https://sosebeemortuary.com/obituaries"},
+        {"name": "Anderson Simple Cremations",  "url": "https://andersonsimplecremations.com/obituary/"},
+        {"name": "Legacy.com Anderson area",    "url": "https://www.legacy.com/us/obituaries/local/south-carolina/anderson"},
     ],
 }
 
@@ -108,9 +112,21 @@ def fetch_legacy_api(county):
 
     # Search by city names within each county
     city_map = {
-        "Greenville":  ["Greenville", "Mauldin", "Simpsonville", "Greer", "Taylors", "Travelers Rest"],
-        "Spartanburg": ["Spartanburg", "Duncan", "Boiling Springs", "Inman", "Gaffney", "Chesnee"],
-        "Anderson":    ["Anderson", "Seneca", "Pendleton", "Williamston", "Belton", "Honea Path"],
+        "Greenville":  [
+            "Greenville", "Mauldin", "Simpsonville", "Greer", "Taylors",
+            "Travelers Rest", "Fountain Inn", "Piedmont", "Greenville SC",
+            "Pelham", "Tigerville", "Slater", "Marietta",
+        ],
+        "Spartanburg": [
+            "Spartanburg", "Duncan", "Boiling Springs", "Inman", "Gaffney",
+            "Chesnee", "Landrum", "Pauline", "Moore", "Roebuck",
+            "Cowpens", "Wellford", "Lyman", "Woodruff", "Spartanburg SC",
+        ],
+        "Anderson":    [
+            "Anderson", "Seneca", "Pendleton", "Williamston", "Belton",
+            "Honea Path", "Iva", "Starr", "Townville", "Pelzer",
+            "Powdersville", "Anderson SC", "Clemson", "Central",
+        ],
     }
 
     cities = city_map.get(county, [county])
@@ -169,11 +185,95 @@ def fetch_legacy_api(county):
         except Exception as e:
             print(f"  [Legacy API error for {city}]: {e}")
 
-    # Fallback: try newspaper pages directly
+    # Fallback 1: try newspaper pages directly
     if not results:
         results = fetch_legacy_newspaper_pages(county, seen_names)
 
+    # Fallback 2: try Legacy.com county search page
+    if not results:
+        results = fetch_legacy_county_page(county, seen_names)
+
     print(f"  Legacy.com -> {len(results)} found for {county}")
+    return results
+
+
+def fetch_legacy_county_page(county, seen_names=None):
+    """Scrape Legacy.com county search page as last resort."""
+    if seen_names is None:
+        seen_names = set()
+    results = []
+    url = f"https://www.legacy.com/obituaries/search?countryId=1&regionId=42&countyName={requests.utils.quote(county)}"
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=15)
+        if resp.status_code != 200:
+            print(f"  [Legacy county page HTTP {resp.status_code}]")
+            return []
+        soup = BeautifulSoup(resp.text, "html.parser")
+
+        # Try to find next-data JSON embedded in page
+        script = soup.find("script", id="__NEXT_DATA__")
+        if script:
+            try:
+                data = json.loads(script.string)
+                # Walk the JSON tree looking for obituary lists
+                def find_obits(obj, depth=0):
+                    if depth > 8:
+                        return []
+                    found = []
+                    if isinstance(obj, list):
+                        for item in obj:
+                            if isinstance(item, dict) and ("fullName" in item or "firstName" in item):
+                                found.append(item)
+                            else:
+                                found.extend(find_obits(item, depth+1))
+                    elif isinstance(obj, dict):
+                        for v in obj.values():
+                            found.extend(find_obits(v, depth+1))
+                    return found
+                obits = find_obits(data)
+                for obit in obits:
+                    name = obit.get("fullName") or f"{obit.get('firstName','')} {obit.get('lastName','')}".strip()
+                    if not name or name in seen_names or len(name) < 4:
+                        continue
+                    seen_names.add(name)
+                    slug = obit.get("slug", obit.get("id", ""))
+                    link = f"https://www.legacy.com/us/obituaries/name/{slug}" if slug else ""
+                    results.append({
+                        "name":     name,
+                        "date":     obit.get("publishDate", obit.get("deathDate", "See source"))[:10] if obit.get("publishDate") or obit.get("deathDate") else "See source",
+                        "location": f"{obit.get('city', county)}, SC",
+                        "source":   "Legacy.com (county search)",
+                        "county":   county,
+                        "link":     link,
+                    })
+            except Exception as e:
+                print(f"  [Legacy county JSON parse error]: {e}")
+
+        # Also try plain HTML scraping
+        if not results:
+            for card in soup.find_all(True, class_=re.compile(r"obit|listing|result|card", re.I)):
+                name_el = card.find(class_=re.compile(r"name|title", re.I)) or card.find(["h2","h3","h4"])
+                if not name_el:
+                    continue
+                name = name_el.get_text(strip=True)
+                if not name or len(name) < 4 or name in seen_names:
+                    continue
+                if any(w in name.lower() for w in ["obituar","search","legacy","home"]):
+                    continue
+                seen_names.add(name)
+                link_el = card.find("a", href=True)
+                href = link_el["href"] if link_el else ""
+                link = href if href.startswith("http") else ("https://www.legacy.com" + href if href.startswith("/") else "")
+                results.append({
+                    "name": name, "date": "See source",
+                    "location": f"{county} County, SC",
+                    "source": "Legacy.com (county search)",
+                    "county": county, "link": link,
+                })
+    except Exception as e:
+        print(f"  [Legacy county page error]: {e}")
+
+    print(f"  Legacy county page -> {len(results)} found")
     return results
 
 
