@@ -571,15 +571,19 @@ def fetch_funeral_home(name, url, county):
                 if len(w) > 1:
                     exclude.add(w)
 
+        # Sentence-boundary terminator — stops at real new sentences NOT at Jr./Sr./Dr. abbreviations
+        _end = r'(?=\.\s*(?:Funeral|Services|Visitation|Born|In lieu|Memorial|Burial|Graveside|Interment|She was|He was|They were|Please|Friends may|Arrangements)|\Z)'
+
         # Multiple patterns for "survived by" sections
-        # Use [^.] patterns that stop at sentence-ending periods but not abbreviations like Jr.
         patterns = [
-            r'(?:is|are)\s+survived\s+by[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|Born|In lieu|Visitation|\Z)',
-            r'survivors?\s+include[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|Born|In lieu|\Z)',
-            r'leaves?\s+to\s+cherish[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|\Z)',
-            r'leaves?\s+behind[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|\Z)',
-            r'surviving\s+are[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|\Z)',
-            r'those\s+left\s+to\s+cherish[:\s]+(.{10,600}?)(?:\.\s+[A-Z]|\.\s*\n|Services|Funeral|\Z)',
+            r'(?:is|are)\s+survived\s+by[:\s]+(.+?)' + _end,
+            r'also\s+survived\s+by[:\s]+(.+?)' + _end,
+            r'survivors?\s+include[:\s]+(.+?)' + _end,
+            r'leaves?\s+to\s+cherish[:\s]+(.+?)' + _end,
+            r'leaves?\s+behind[:\s]+(.+?)' + _end,
+            r'surviving\s+are[:\s]+(.+?)' + _end,
+            r'those\s+left\s+to\s+cherish[:\s]+(.+?)' + _end,
+            r'left\s+to\s+mourn[:\s]+(.+?)' + _end,
         ]
 
         chunks = []
@@ -600,29 +604,71 @@ def fetch_funeral_home(name, url, county):
                     continue
                 if fn in family:
                     continue
-                # Exclude if any word matches the deceased's name parts
-                # BUT allow Jr./Sr./II/III/IV — these are different people (sons, etc.)
-                fn_parts = set(w.strip(".\'\"-").lower() for w in fn.split() if len(w) > 1)
-                has_suffix = fn_parts & {"jr", "sr", "ii", "iii", "iv", "v"}
-                if (fn_parts & exclude) and not has_suffix:
-                    continue
+                # Exclude only if the candidate IS the deceased — not just shares a last name.
+                # Allow family members who share only the last name (spouse, children, grandchildren).
+                fn_parts = set(w.strip(".\'\"-").lower() for w in fn.split() if len(w) > 2)
+                suffix_words = {"jr", "sr", "ii", "iii", "iv", "v"}
+                fn_all_words = set(w.strip(".\'\"-").lower() for w in fn.split())
+                has_suffix = bool(fn_all_words & suffix_words)
+                shared = fn_parts & exclude
+                first_word = fn.split()[0].strip(".\'\"-").lower()
+                deceased_first = deceased_name.split()[0].strip(".\'\"-").lower() if deceased_name else ""
+                if shared and not has_suffix:
+                    if len(shared) >= 2:  # shares 2+ name parts = probably the deceased
+                        continue
+                    if first_word == deceased_first and len(first_word) > 2:  # same first name
+                        continue
                 family.append(fn)
 
-        return ", ".join(family[:8])
+        return ", ".join(family[:15])
+
+    def fetch_full_text(link):
+        """Fetch the full obituary page and return its text — for better family extraction."""
+        if not link or not link.startswith("http"):
+            return ""
+        # Skip links that are just the listing page itself
+        if link.rstrip("/") == url.rstrip("/"):
+            return ""
+        try:
+            r = requests.get(link, headers=HEADERS, timeout=10)
+            if r.status_code == 200:
+                s = BeautifulSoup(r.text, "html.parser")
+                # Remove nav/header/footer noise
+                for tag in s.find_all(["nav", "header", "footer", "script", "style"]):
+                    tag.decompose()
+                return s.get_text(" ", strip=True)
+        except Exception:
+            pass
+        return ""
 
     def add(n, link, obit_date, card_text=""):
         n = n.strip()
         if n in seen or not is_real_name(n):
             return
         seen.add(n)
-        # Location: try to find city, ST in card text
-        loc_match = re.search(r'\b([A-Z][a-z]+(?: [A-Z][a-z]+)*),\s*([A-Z]{2})\b', card_text)
+
+        # If the card text is short (listing preview only), fetch the full obit page
+        full_text = card_text
+        if link and len(card_text) < 400:
+            fetched = fetch_full_text(link)
+            if fetched and len(fetched) > len(card_text):
+                full_text = fetched
+
+        # Location: try to find city, ST in text
+        loc_match = re.search(r'\b([A-Z][a-z]+(?: [A-Z][a-z]+)*),\s*([A-Z]{2})\b', full_text)
         location = loc_match.group(0) if loc_match else f"{county} County, SC"
+
         # Family members — pass the deceased's name so it gets excluded
-        family = extract_family(card_text, deceased_name=n)
+        family = extract_family(full_text, deceased_name=n)
+
+        # If still no family from full text, try card text as fallback
+        if not family and full_text != card_text:
+            family = extract_family(card_text, deceased_name=n)
+
         results.append({
-            "name": n, "date": obit_date, "location": location,
-            "family": family, "source": name, "county": county, "link": link,
+            "name": n, "date": obit_date if obit_date != "See source" else best_date(full_text),
+            "location": location, "family": family,
+            "source": name, "county": county, "link": link,
         })
 
     # ── Strategy 1: JSON-LD structured data (most reliable) ──
