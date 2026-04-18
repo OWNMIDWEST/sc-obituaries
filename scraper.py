@@ -614,6 +614,333 @@ def save_dashboard(history):
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:Georgia,serif;background:#f5f5f0;color:#222;padding:16px}}
+.hdr{{background:#1a1a2e;color:white;padding:18px 24px;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}}
+.hdr h1{{font-size:21px;margin-bottom:3px}}
+.hdr p{{color:#aaa;font-size:13px;font-family:Arial,sans-serif}}
+.nav{{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}}
+.tab{{padding:8px 16px;border-radius:20px;border:none;cursor:pointer;font-family:Arial,sans-serif;font-size:13px;font-weight:600;transition:opacity .15s}}
+.tab:hover{{opacity:.85}}
+.panel{{display:none}}.panel.active{{display:block}}
+.layout{{display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start}}
+@media(max-width:700px){{.layout{{grid-template-columns:1fr}}}}
+.card{{background:white;border-radius:8px;padding:20px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}}
+.card-sm{{background:white;border-radius:8px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.08)}}
+.ctitle{{font-size:17px;font-weight:bold;border-left:5px solid;padding-left:12px;margin-bottom:13px}}
+.stitle{{font-size:14px;font-weight:600;font-family:Arial,sans-serif;color:#374151;margin-bottom:10px}}
+.badge{{font-family:Arial,sans-serif;font-size:11px;background:#f3f4f6;color:#555;padding:2px 9px;border-radius:12px;margin-left:6px;font-weight:normal}}
+table{{width:100%;border-collapse:collapse;font-size:13px}}
+thead tr{{background:#f0f0f0}}
+th{{padding:7px 9px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#555}}
+td{{padding:8px 9px;border-bottom:1px solid #eee;vertical-align:top}}
+tr:last-child td{{border-bottom:none}}
+tr:hover td{{background:#fafafa}}
+a.vl{{text-decoration:none;font-size:11px;font-family:Arial,sans-serif;padding:2px 9px;border-radius:8px;color:white}}
+.empty{{color:#999;font-style:italic;padding:8px 0;font-family:Arial,sans-serif;font-size:13px}}
+.day-tab{{display:inline-block;padding:4px 12px;border-radius:14px;cursor:pointer;font-family:Arial,sans-serif;font-size:12px;font-weight:600;margin:3px;background:#f3f4f6;color:#374151;border:1px solid #e5e7eb}}
+.day-tab.sel{{background:#b45309;color:white;border-color:#b45309}}
+.day-panel{{display:none}}.day-panel.active{{display:block}}
+.src-row{{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:6px;margin-bottom:5px;background:#f9f9f9;border:1px solid #eee}}
+.src-btn{{padding:4px 12px;border-radius:10px;border:none;font-size:11px;font-weight:600;color:white;text-decoration:none;display:inline-block}}
+.dl-btn{{width:100%;padding:8px;border:none;border-radius:6px;font-family:Arial,sans-serif;font-size:12px;font-weight:600;cursor:pointer;color:white;margin-bottom:6px;text-align:left;display:flex;align-items:center;gap:8px}}
+.dl-btn:last-child{{margin-bottom:0}}
+.dl-row{{display:flex;gap:6px;margin-bottom:6px}}
+.dl-row button{{flex:1;padding:7px 4px;border:none;border-radius:6px;font-family:Arial,sans-serif;font-size:11px;font-weight:600;cursor:pointer;color:white}}
+.scrape-btn{{background:#16a34a;color:white;border:none;border-radius:8px;padding:10px 18px;font-family:Arial,sans-serif;font-size:13px;font-weight:700;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:8px}}
+.scrape-btn:hover{{background:#15803d}}
+.scrape-btn:disabled{{background:#6b7280;cursor:not-allowed}}
+.status-msg{{font-family:Arial,sans-serif;font-size:12px;margin-top:8px;padding:8px 10px;border-radius:6px;display:none}}
+.token-input{{width:100%;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-family:monospace;font-size:11px;margin-bottom:8px;color:#374151}}
+.token-input:focus{{outline:none;border-color:#16a34a}}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div>
+    <h1>SC Obituary Dashboard</h1>
+    <p>Greenville &nbsp;·&nbsp; Spartanburg &nbsp;·&nbsp; Anderson &nbsp;|&nbsp; Updated: {updated}</p>
+  </div>
+</div>
+<div class="nav">
+  <button class="tab" style="background:#374151;color:white" onclick="show('all')">Today — All</button>
+  <button class="tab" style="background:#2563eb;color:white" onclick="show('gvl')">Greenville</button>
+  <button class="tab" style="background:#7c3aed;color:white" onclick="show('spt')">Spartanburg</button>
+  <button class="tab" style="background:#059669;color:white" onclick="show('and')">Anderson</button>
+  <button class="tab" style="background:#b45309;color:white" onclick="show('hist')">7-Day History</button>
+  <button class="tab" style="background:#e5e7eb;color:#374151;margin-left:auto" onclick="show('src')">Sources</button>
+</div>
+
+<div id="p-all"  class="panel active"></div>
+<div id="p-gvl"  class="panel"></div>
+<div id="p-spt"  class="panel"></div>
+<div id="p-and"  class="panel"></div>
+
+<div id="p-hist" class="panel">
+  <div class="layout">
+    <div>
+      <div class="card">
+        <div class="ctitle" style="border-color:#b45309;color:#b45309;">7-Day History</div>
+        <div id="dtabs" style="margin-bottom:14px;"></div>
+        <div id="dbody"></div>
+      </div>
+    </div>
+    <div id="hist-sidebar"></div>
+  </div>
+</div>
+
+<div id="p-src" class="panel">
+  <div class="layout">
+    <div>
+      <div class="card">
+        <div class="ctitle" style="border-color:#2563eb;color:#2563eb;">Greenville Sources</div>
+        <div class="src-row"><div><strong>Legacy.com Greenville</strong><br><small style="color:#888">Aggregator</small></div><a class="src-btn" style="background:#2563eb" href="https://www.legacy.com/us/obituaries/local/south-carolina/greenville-area" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>Mackey Mortuary</strong></div><a class="src-btn" style="background:#2563eb" href="https://www.mackeymortuary.com/obituaries" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>Thomas McAfee Funeral Homes</strong></div><a class="src-btn" style="background:#2563eb" href="https://www.thomasmcafee.com/obituaries" target="_blank">Open</a></div>
+      </div>
+      <div class="card">
+        <div class="ctitle" style="border-color:#7c3aed;color:#7c3aed;">Spartanburg Sources</div>
+        <div class="src-row"><div><strong>Legacy.com Spartanburg</strong><br><small style="color:#888">Aggregator</small></div><a class="src-btn" style="background:#7c3aed" href="https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-area" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>Floyd Mortuary</strong></div><a class="src-btn" style="background:#7c3aed" href="https://www.floydmortuary.com/obituaries" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>Community Mortuary</strong></div><a class="src-btn" style="background:#7c3aed" href="https://www.communitymortuaryinc.com/listings" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>Bobo Funeral Chapel</strong></div><a class="src-btn" style="background:#7c3aed" href="https://www.bobofuneralchapel.com/listings" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>Roberts Funeral Home</strong></div><a class="src-btn" style="background:#7c3aed" href="https://www.robertsfhsc.com/listings" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>E.L. Collins Funeral Home</strong></div><a class="src-btn" style="background:#7c3aed" href="https://www.elcollinsfh.com/obituaries" target="_blank">Open</a></div>
+      </div>
+      <div class="card">
+        <div class="ctitle" style="border-color:#059669;color:#059669;">Anderson Sources</div>
+        <div class="src-row"><div><strong>Legacy.com Anderson</strong><br><small style="color:#888">Aggregator</small></div><a class="src-btn" style="background:#059669" href="https://www.legacy.com/us/obituaries/local/south-carolina/anderson" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>McDougald Funeral Home</strong></div><a class="src-btn" style="background:#059669" href="https://www.mcdougaldfuneralhome.com/obituaries/obituary-listings" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>Marcus D. Brown Funeral Home</strong></div><a class="src-btn" style="background:#059669" href="https://www.marcusdbrownfuneralhome.com/listings" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>D.B. Walker Funeral Services</strong></div><a class="src-btn" style="background:#059669" href="https://www.dbwalkerfuneralservices.com/listings" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>Sosebee Mortuary</strong></div><a class="src-btn" style="background:#059669" href="https://sosebeemortuary.com/obituaries" target="_blank">Open</a></div>
+        <div class="src-row"><div><strong>Anderson Simple Cremations</strong></div><a class="src-btn" style="background:#059669" href="https://andersonsimplecremations.com/obituary/" target="_blank">Open</a></div>
+      </div>
+    </div>
+    <div id="src-sidebar"></div>
+  </div>
+</div>
+
+<script>
+const C=['Greenville','Spartanburg','Anderson'];
+const CLR={{Greenville:'#2563eb',Spartanburg:'#7c3aed',Anderson:'#059669'}};
+const H={history_json};
+const REPO='ownmidwest/sc-obituaries';
+const WORKFLOW='daily_scrape.yml';
+
+function show(n){{
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('p-'+n).classList.add('active');
+}}
+
+function tbl(entries,county){{
+  if(!entries||!entries.length) return '<p class="empty">No obituaries found today.</p>';
+  const c=CLR[county]||'#333';
+  return '<table><thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Source</th><th>Link</th></tr></thead><tbody>'
+    +entries.map(e=>`<tr>
+      <td><strong>${{e.name}}</strong></td>
+      <td style="color:#666;font-size:12px;white-space:nowrap">${{e.date||'—'}}</td>
+      <td style="color:#666;font-size:12px">${{e.location}}</td>
+      <td style="color:#666;font-size:12px">${{e.source}}</td>
+      <td>${{e.link?`<a class="vl" style="background:${{c}}" href="${{e.link}}" target="_blank">View</a>`:'—'}}</td>
+    </tr>`).join('')+'</tbody></table>';
+}}
+
+function fmt(d){{
+  const[y,m,day]=d.split('-');
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]+' '+day;
+}}
+
+/* ── DOWNLOADS ── */
+function toCSV(rows,extra){{
+  const hdr=(extra?'Name,Date,Location,County,Source,Link,Scraped Date':'Name,Date,Location,County,Source,Link');
+  return [hdr,...rows.map(e=>{{
+    const b=[e.name,e.date||'',e.location,e.county,e.source,e.link||''];
+    if(extra)b.push(e.scraped_date||'');
+    return b.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
+  }})].join('\r\n');
+}}
+function dlFile(content,name,mime){{
+  const a=Object.assign(document.createElement('a'),{{href:URL.createObjectURL(new Blob([content],{{type:mime}})),download:name}});
+  a.click();URL.revokeObjectURL(a.href);
+}}
+function dlCSV(d,co){{
+  const data=H[d];if(!data)return;
+  const rows=co?(data[co]||[]):C.flatMap(c=>data[c]||[]);
+  dlFile(toCSV(rows),`sc_obits_${{d}}_${{co||'all'}}.csv`,'text/csv');
+}}
+function dlJSON(d,co){{
+  const data=H[d];if(!data)return;
+  const out=co?{{date:d,county:co,entries:data[co]||[]}}:{{date:d,counties:data}};
+  dlFile(JSON.stringify(out,null,2),`sc_obits_${{d}}_${{co||'all'}}.json`,'application/json');
+}}
+function dlWeekCSV(){{
+  const rows=Object.entries(H).flatMap(([d,data])=>C.flatMap(co=>(data[co]||[]).map(e=>{{return{{...e,scraped_date:d}}}})));
+  dlFile(toCSV(rows,true),'sc_obits_7day.csv','text/csv');
+}}
+function dlWeekJSON(){{dlFile(JSON.stringify(H,null,2),'sc_obits_7day.json','application/json');}}
+
+/* ── SIDEBAR with downloads + scrape trigger ── */
+function sidebar(dateStr){{
+  const days=Object.keys(H).sort().reverse();
+  const totalToday=dateStr?C.reduce((n,co)=>n+(H[dateStr][co]||[]).length,0):0;
+  const totalWeek=Object.values(H).reduce((n,d)=>n+C.reduce((m,co)=>m+(d[co]||[]).length,0),0);
+  const dayOpts=days.map(d=>{{
+    const cnt=C.reduce((n,co)=>n+(H[d][co]||[]).length,0);
+    return `<div style="margin-bottom:8px;">
+      <div style="font-family:Arial,sans-serif;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px;">${{fmt(d)}} <span style="font-weight:normal;color:#888;">(${{cnt}})</span></div>
+      <div class="dl-row">
+        <button onclick="dlCSV('${{d}}','')" style="background:#0891b2;">CSV — All</button>
+        <button onclick="dlJSON('${{d}}','')" style="background:#0e7490;">JSON — All</button>
+      </div>
+      <div class="dl-row">
+        ${{C.map(co=>`<button onclick="dlCSV('${{d}}','${{co}}')" style="background:${{CLR[co]}};font-size:10px;">${{co.substring(0,4)}}</button>`).join('')}}
+      </div>
+    </div>`;
+  }}).join('');
+
+  return `
+    <div class="card-sm">
+      <div class="stitle">Run Scraper Now</div>
+      <input class="token-input" id="gh-token" type="password" placeholder="Paste GitHub token here"/>
+      <button class="scrape-btn" id="scrape-btn" onclick="triggerScrape()">
+        <span>&#9654;</span> Run Scraper
+      </button>
+      <div id="scrape-status" class="status-msg"></div>
+      <p style="font-family:Arial,sans-serif;font-size:11px;color:#999;margin-top:8px;line-height:1.5;">
+        Needs a GitHub Personal Access Token with <strong>repo</strong> scope.<br>
+        <a href="https://github.com/settings/tokens/new?scopes=repo&description=SC+Obituary+Scraper" target="_blank" style="color:#16a34a;">Create token here ↗</a>
+      </p>
+    </div>
+
+    <div class="card-sm">
+      <div class="stitle">Download Today</div>
+      <p style="font-family:Arial,sans-serif;font-size:11px;color:#888;margin-bottom:8px;">${{dateStr||'—'}} · ${{totalToday}} obituaries</p>
+      <div class="dl-row">
+        <button onclick="dlCSV('${{dateStr}}','')" style="background:#0891b2;">CSV — All</button>
+        <button onclick="dlJSON('${{dateStr}}','')" style="background:#0e7490;">JSON — All</button>
+      </div>
+      <div class="dl-row">
+        ${{C.map(co=>`<button onclick="dlCSV('${{dateStr}}','${{co}}')" style="background:${{CLR[co]}};font-size:11px;">${{co}}</button>`).join('')}}
+      </div>
+    </div>
+
+    <div class="card-sm">
+      <div class="stitle">Download 7-Day History</div>
+      <p style="font-family:Arial,sans-serif;font-size:11px;color:#888;margin-bottom:8px;">${{days.length}} days · ${{totalWeek}} total</p>
+      <div class="dl-row">
+        <button onclick="dlWeekCSV()" style="background:#b45309;">7-Day CSV</button>
+        <button onclick="dlWeekJSON()" style="background:#92400e;">7-Day JSON</button>
+      </div>
+    </div>
+
+    <div class="card-sm">
+      <div class="stitle">Download by Day</div>
+      ${{dayOpts}}
+    </div>`;
+}}
+
+/* ── GITHUB WORKFLOW TRIGGER ── */
+async function triggerScrape(){{
+  const token=document.getElementById('gh-token').value.trim();
+  if(!token){{showStatus('error','Please paste your GitHub token first.');return;}}
+  const btn=document.getElementById('scrape-btn');
+  btn.disabled=true;btn.innerHTML='<span>&#8987;</span> Triggering...';
+  showStatus('info','Sending request to GitHub...');
+  try{{
+    const res=await fetch(`https://api.github.com/repos/${{REPO}}/actions/workflows/${{WORKFLOW}}/dispatches`,{{
+      method:'POST',
+      headers:{{'Authorization':`Bearer ${{token}}`,'Accept':'application/vnd.github+json','Content-Type':'application/json'}},
+      body:JSON.stringify({{ref:'main'}})
+    }});
+    if(res.status===204){{
+      showStatus('success','Scraper triggered! Check back in ~2 minutes then reload this page.');
+      btn.innerHTML='<span>&#10003;</span> Triggered!';
+      setTimeout(()=>{{btn.disabled=false;btn.innerHTML='<span>&#9654;</span> Run Scraper';}},10000);
+    }} else {{
+      const err=await res.json().catch(()=>({{}}));
+      showStatus('error',`GitHub error ${{res.status}}: ${{err.message||'Check your token has repo scope.'}}`);
+      btn.disabled=false;btn.innerHTML='<span>&#9654;</span> Run Scraper';
+    }}
+  }} catch(e){{
+    showStatus('error','Network error — check your token and try again.');
+    btn.disabled=false;btn.innerHTML='<span>&#9654;</span> Run Scraper';
+  }}
+}}
+
+function showStatus(type,msg){{
+  const el=document.getElementById('scrape-status');
+  const styles={{
+    success:'background:#dcfce7;color:#166534;border:1px solid #bbf7d0',
+    error:'background:#fee2e2;color:#991b1b;border:1px solid #fecaca',
+    info:'background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe'
+  }};
+  el.style.cssText=styles[type]+';display:block;';
+  el.textContent=msg;
+}}
+
+/* ── RENDER ── */
+function renderToday(){{
+  const days=Object.keys(H).sort().reverse();
+  if(!days.length)return;
+  const today=days[0];const data=H[today];
+  const sb=sidebar(today);
+  document.getElementById('p-all').innerHTML=`<div class="layout"><div>${{
+    C.map(co=>{{const e=data[co]||[];const c=CLR[co];
+      return `<div class="card"><div class="ctitle" style="border-color:${{c}};color:${{c}}">${{co}} County<span class="badge">${{e.length}} found</span></div>${{tbl(e,co)}}</div>`;
+    }}).join('')
+  }}</div><div>${{sb}}</div></div>`;
+  [['gvl','Greenville'],['spt','Spartanburg'],['and','Anderson']].forEach(([id,co])=>{{
+    const e=data[co]||[];const c=CLR[co];
+    document.getElementById('p-'+id).innerHTML=`<div class="layout"><div>
+      <div class="card"><div class="ctitle" style="border-color:${{c}};color:${{c}}">${{co}} County<span class="badge">${{e.length}} found</span></div>${{tbl(e,co)}}</div>
+    </div><div>${{sb}}</div></div>`;
+  }});
+  document.getElementById('src-sidebar').innerHTML=sb;
+}}
+
+function renderHistory(){{
+  const days=Object.keys(H).sort().reverse();
+  if(!days.length)return;
+  document.getElementById('dtabs').innerHTML=days.map((d,i)=>
+    `<span class="day-tab ${{i===0?'sel':''}}" onclick="selDay('${{d}}',this)">${{fmt(d)}}</span>`).join('');
+  document.getElementById('dbody').innerHTML=days.map((d,i)=>{{
+    const data=H[d];
+    return `<div id="day-${{d}}" class="day-panel ${{i===0?'active':''}}">
+      ${{C.map(co=>{{const e=data[co]||[];const c=CLR[co];
+        return `<div style="margin-bottom:18px"><h3 style="color:${{c}};border-left:4px solid ${{c}};padding-left:10px;margin-bottom:10px;font-size:15px">${{co}} County<span class="badge">${{e.length}}</span></h3>${{tbl(e,co)}}</div>`;
+      }}).join('')}}
+    </div>`;
+  }}).join('');
+  const today=days[0];
+  document.getElementById('hist-sidebar').innerHTML=sidebar(today);
+}}
+
+function selDay(d,el){{
+  document.querySelectorAll('.day-tab').forEach(t=>t.classList.remove('sel'));
+  document.querySelectorAll('.day-panel').forEach(p=>p.classList.remove('active'));
+  el.classList.add('sel');document.getElementById('day-'+d).classList.add('active');
+}}
+
+renderToday();renderHistory();
+</script>
+</body></html>"""
+
+    os.makedirs(DOCS_DIR, exist_ok=True)
+    with open(DASHBOARD_OUT, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"Dashboard saved -> {DASHBOARD_OUT}")
+    history_json = json.dumps(history, ensure_ascii=False)
+    today_key = sorted(history.keys())[-1] if history else ""
+    updated = today_key or datetime.now().strftime("%Y-%m-%d")
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>SC Obituary Dashboard</title>
+<style>
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:Georgia,serif;background:#f5f5f0;color:#222;padding:16px}}
 .hdr{{background:#1a1a2e;color:white;padding:20px 24px;border-radius:8px;margin-bottom:18px}}
 .hdr h1{{font-size:22px;margin-bottom:4px}}
 .hdr p{{color:#aaa;font-size:13px;font-family:Arial,sans-serif}}
