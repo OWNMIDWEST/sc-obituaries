@@ -213,7 +213,7 @@ def fetch_legacy_api(county):
                 f"&city={requests.utils.quote(city)}"
                 f"&limit=50&offset=0"
             )
-            resp = requests.get(url, headers=LEGACY_HEADERS, timeout=15)
+            resp = requests.get(url, headers=LEGACY_HEADERS, timeout=20)
 
             if resp.status_code == 200:
                 data = resp.json()
@@ -276,7 +276,7 @@ def fetch_legacy_county_page(county, seen_names=None):
     results = []
     url = f"https://www.legacy.com/obituaries/search?countryId=1&regionId=42&countyName={requests.utils.quote(county)}"
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=15)
+        resp = requests.get(url, headers=HEADERS, timeout=20)
         if resp.status_code != 200:
             print(f"  [Legacy county page HTTP {resp.status_code}]")
             return []
@@ -359,7 +359,7 @@ def fetch_legacy_newspaper_pages(county, seen_names=None):
     for paper in papers:
         url = f"https://www.legacy.com/us/obituaries/{paper}/recent"
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=15)
+            resp = requests.get(url, headers=HEADERS, timeout=20)
             if resp.status_code != 200:
                 continue
             soup = BeautifulSoup(resp.text, "html.parser")
@@ -530,7 +530,7 @@ def fetch_funeral_home(name, url, county):
     """Scrape a funeral home obituary page with strict name validation."""
     results = []
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=15)
+        resp = requests.get(url, headers=HEADERS, timeout=20)
         if resp.status_code != 200:
             print(f"  [{resp.status_code}] {name}")
             return []
@@ -674,18 +674,25 @@ def fetch_funeral_home(name, url, county):
         return ", ".join(family[:15])
 
     def fetch_full_text(link):
-        """Fetch the full obituary page and return its text — for better family extraction."""
+        """Fetch the full obituary page and return its complete text."""
         if not link or not link.startswith("http"):
             return ""
         # Skip links that are just the listing page itself
         if link.rstrip("/") == url.rstrip("/"):
             return ""
         try:
-            r = requests.get(link, headers=HEADERS, timeout=10)
+            time.sleep(0.5)  # Be polite — small delay between individual page fetches
+            r = requests.get(link, headers=HEADERS, timeout=25)
             if r.status_code == 200:
                 s = BeautifulSoup(r.text, "html.parser")
-                # Remove nav/header/footer noise
-                for tag in s.find_all(["nav", "header", "footer", "script", "style"]):
+                # Remove nav/header/footer/sidebar noise — keep only main content
+                for tag in s.find_all(["nav", "header", "footer", "script", "style",
+                                       "aside", "iframe", "noscript"]):
+                    tag.decompose()
+                # Also strip common sidebar class names
+                for tag in s.find_all(class_=re.compile(
+                    r"sidebar|widget|menu|footer|header|nav|social|share|subscribe|"
+                    r"related|comment|advertisement|banner|popup", re.I)):
                     tag.decompose()
                 return s.get_text(" ", strip=True)
         except Exception:
@@ -698,9 +705,10 @@ def fetch_funeral_home(name, url, county):
             return
         seen.add(n)
 
-        # If the card text is short (listing preview only), fetch the full obit page
+        # Fetch the full obituary page whenever card text seems incomplete.
+        # Threshold of 600 chars — if card text is shorter, it's likely just a preview.
         full_text = card_text
-        if link and len(card_text) < 400:
+        if link and len(card_text) < 600:
             fetched = fetch_full_text(link)
             if fetched and len(fetched) > len(card_text):
                 full_text = fetched
