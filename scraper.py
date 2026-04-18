@@ -388,11 +388,94 @@ def fetch_legacy_newspaper_pages(county, seen_names=None):
 #  FUNERAL HOME SCRAPER  (secondary sources)
 # ─────────────────────────────────────────────
 
+def is_real_name(text):
+    """
+    Return True only if text looks like an actual person's name.
+    Rejects cities, states, buttons, headings, and other page junk.
+    """
+    if not text:
+        return False
+    t = text.strip()
+
+    # Length bounds
+    if len(t) < 5 or len(t) > 80:
+        return False
+
+    # Must have at least 2 words
+    words = t.split()
+    if len(words) < 2:
+        return False
+
+    # Every word must start with a capital letter (names are Title Case)
+    # Allow particles: de, van, von, la, le, of, jr, sr, ii, iii, iv
+    particles = {"de","van","von","la","le","of","jr","sr","ii","iii","iv","the","and","rev","dr","mr","mrs","ms","prof","col","sgt","cpl","pvt","lt","capt","maj","gen","brig","cdr"}
+    for w in words:
+        clean = w.strip(".,\'\"-")
+        if not clean:
+            continue
+        if clean.lower() in particles:
+            continue
+        clean = clean.rstrip(".")
+        if not clean:
+            continue
+        if not clean[0].isupper():
+            return False
+
+    # Must be mostly letters, spaces, and name punctuation
+    letter_ratio = sum(c.isalpha() or c in " .,\'-\"" for c in t) / len(t)
+    if letter_ratio < 0.85:
+        return False
+
+    # Hard reject list — common non-name strings found on funeral home pages
+    reject_words = [
+        "send flowers", "add a memory", "share obituary", "plant a tree",
+        "light a candle", "sign guestbook", "leave condolence", "view obituary",
+        "read more", "learn more", "click here", "see more", "load more",
+        "all obituaries", "recent obituaries", "obituary listing",
+        "funeral home", "mortuary", "cremation", "chapel", "memorial",
+        "arrangements", "services held", "visitation", "graveside",
+        "south carolina", "north carolina", "georgia", "tennessee",
+        "county, sc", "county, nc", ", sc", ", nc", ", ga",
+        "home", "about", "contact", "directions", "staff", "careers",
+        "preplanning", "pre-planning", "grief support", "resources",
+        "privacy policy", "terms of use", "accessibility",
+        "phone", "fax", "email", "address", "copyright",
+        "facebook", "twitter", "instagram", "youtube",
+        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+        "january", "february", "march", "april", "may", "june",
+        "july", "august", "september", "october", "november", "december",
+        " 7am", " 8am", " 9am", " 10am", " 11am", " 12pm", " 1pm", " 2pm", " 3pm",
+    ]
+    tl = t.lower()
+    if any(rw in tl for rw in reject_words):
+        return False
+
+    # Reject if it looks like a city/state pattern: "Word, XX" e.g. "Union, SC"
+    if re.match(r'^[A-Z][a-z]+(?: [A-Z][a-z]+)*, [A-Z]{2}$', t):
+        return False
+
+    # Reject pure ALL CAPS (usually headings/buttons)
+    if t.upper() == t and len(t) > 6:
+        return False
+
+    # Reject if contains digits (addresses, phone numbers, dates)
+    if any(c.isdigit() for c in t):
+        return False
+
+    # Must contain at least one vowel per word (real names have vowels)
+    particles_lower = {"de","van","von","la","le","of","jr","sr","ii","iii","iv","the","and","rev","dr","mr","mrs","ms","prof","col","sgt","cpl","pvt","lt","capt","maj","gen","brig","cdr","st","mt"}
+    for w in words:
+        clean = w.strip(".,\'-\"").rstrip(".").lower()
+        if clean in particles_lower:
+            continue
+        if len(clean) > 2 and not any(v in clean for v in "aeiou"):
+            return False
+
+    return True
+
+
 def fetch_funeral_home(name, url, county):
-    """
-    Aggressively scrape a funeral home obituary page.
-    Tries many different HTML patterns used by common funeral home website builders.
-    """
+    """Scrape a funeral home obituary page with strict name validation."""
     results = []
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15)
@@ -405,121 +488,131 @@ def fetch_funeral_home(name, url, county):
 
     soup = BeautifulSoup(resp.text, "html.parser")
     seen = set()
+    base_url = "/".join(url.split("/")[:3])
 
-    # Strategy 1: structured data (JSON-LD) — most reliable when present
+    def make_link(tag):
+        a = tag.find("a", href=True) if tag else None
+        if not a:
+            return ""
+        href = a["href"]
+        if href.startswith("http"):
+            return href
+        if href.startswith("/"):
+            return base_url + href
+        return ""
+
+    def make_date(tag, context_text=""):
+        date_el = tag.find(class_=re.compile(r"date|death|born|age", re.I)) if tag else None
+        return best_date(
+            date_el.get_text(" ", strip=True) if date_el else "",
+            context_text
+        ) or "See source"
+
+    def extract_family(text):
+        """Pull names after survived-by keywords."""
+        family = []
+        # Find "survived by his/her/their ... wife/husband/son/daughter/children"
+        surv = re.search(
+            r'survived?\s+by[:\s]+(.{10,300}?)(?:\.|He was|She was|Services|Funeral|Born|\Z)',
+            text, re.I | re.S
+        )
+        if surv:
+            chunk = surv.group(1)
+            # Extract individual names — look for capitalized pairs
+            found = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', chunk)
+            for fn in found:
+                if is_real_name(fn) and fn not in family:
+                    family.append(fn)
+        return ", ".join(family[:6])  # cap at 6 names
+
+    def add(n, link, obit_date, card_text=""):
+        n = n.strip()
+        if n in seen or not is_real_name(n):
+            return
+        seen.add(n)
+        # Location: try to find city, ST in card text
+        loc_match = re.search(r'\b([A-Z][a-z]+(?: [A-Z][a-z]+)*),\s*([A-Z]{2})\b', card_text)
+        location = loc_match.group(0) if loc_match else f"{county} County, SC"
+        # Family members from card text
+        family = extract_family(card_text)
+        results.append({
+            "name": n, "date": obit_date, "location": location,
+            "family": family, "source": name, "county": county, "link": link,
+        })
+
+    # ── Strategy 1: JSON-LD structured data (most reliable) ──
     for script in soup.find_all("script", type="application/ld+json"):
         try:
             data = json.loads(script.string or "")
             items = data if isinstance(data, list) else [data]
             for item in items:
                 if item.get("@type") in ("Person", "Obituary", "Event"):
-                    n = item.get("name", "")
-                    if n and n not in seen and len(n) > 3:
+                    n = item.get("name", "").strip()
+                    if is_real_name(n):
                         seen.add(n)
                         results.append({
-                            "name":     n,
-                            "date":     item.get("deathDate", item.get("startDate", "See source")),
+                            "name": n,
+                            "date": item.get("deathDate", item.get("startDate", "See source")),
                             "location": f"{county} County, SC",
-                            "source":   name,
-                            "county":   county,
-                            "link":     item.get("url", url),
+                            "family": "",
+                            "source": name, "county": county,
+                            "link": item.get("url", url),
                         })
         except Exception:
             pass
+    if results:
+        return results
+
+    # ── Strategy 2: CFS/TA platform ──
+    # Name is usually in <strong> or <b> or <h2>/<h3> inside a listing card.
+    # Each card also contains the obituary text with dates and family info.
+    for card in soup.find_all(class_=re.compile(r"listing|obit|deceased|tribute|memorial|card|item", re.I)):
+        card_text = card.get_text(" ", strip=True)
+        # Priority: bold tag > named class > heading
+        name_el = (
+            card.find(["strong", "b"])
+            or card.find(class_=re.compile(r"name|title|deceased|fullname", re.I))
+            or card.find(["h2", "h3", "h4"])
+        )
+        if not name_el:
+            continue
+        n = name_el.get_text(strip=True)
+        add(n, make_link(card), make_date(card, card_text), card_text)
 
     if results:
         return results
 
-    # Strategy 2: common CSS class patterns used by funeral home site builders
-    # (Tribute Archive, FrontRunner, SRS Computing, Domani, etc.)
-    selectors = [
-        {"class": re.compile(r"obit.?name|deceased.?name|obituary.?name", re.I)},
-        {"class": re.compile(r"fn|fullname|full.name", re.I)},
-        {"itemprop": "name"},
-        {"class": re.compile(r"obit|obituary|deceased|memorial|tribute", re.I)},
-    ]
+    # ── Strategy 3: bold/strong tags anywhere on page ──
+    for bold in soup.find_all(["strong", "b"]):
+        n = bold.get_text(strip=True)
+        if not is_real_name(n):
+            continue
+        parent = bold.parent
+        context = parent.get_text(" ", strip=True) if parent else ""
+        if not any(w in context.lower() for w in [
+            "born", "passed", "survived", "memorial", "funeral",
+            "service", "died", "death", "departed", "eternal", "heaven",
+            "age", "years"
+        ]):
+            continue
+        add(n, make_link(bold), make_date(bold, context), context)
 
-    for sel in selectors:
-        tags = soup.find_all(True, attrs=sel)
-        for tag in tags:
-            n = tag.get_text(strip=True)
-            if not n or len(n) < 4 or n in seen:
-                continue
-            if any(w in n.lower() for w in ["home", "about", "contact", "service", "menu",
-                                             "obituar", "search", "phone", "address"]):
-                continue
-            # Must look like a name (2+ words, mostly letters)
-            if len(n.split()) < 2:
-                continue
-            if sum(c.isalpha() or c in " .,'-" for c in n) / max(len(n), 1) < 0.8:
-                continue
-            seen.add(n)
+    if results:
+        return results
 
-            # Try to find link near this element
-            parent = tag.parent
-            link_el = tag.find("a", href=True) or (parent.find("a", href=True) if parent else None)
-            href = link_el["href"] if link_el else ""
-            if href and not href.startswith("http"):
-                base = "/".join(url.split("/")[:3])
-                href = base + href if href.startswith("/") else ""
-
-            # Date: try dedicated date element first, then full card text
-            date_el = (tag.find_next(class_=re.compile(r"date|death|born|age", re.I))
-                       or (parent.find(class_=re.compile(r"date|death|born|age", re.I)) if parent else None))
-            card_text = parent.get_text(" ", strip=True) if parent else ""
-            obit_date = best_date(
-                date_el.get_text(" ", strip=True) if date_el else "",
-                card_text,
-            ) or "See source"
-
-            results.append({
-                "name":     n,
-                "date":     obit_date,
-                "location": f"{county} County, SC",
-                "source":   name,
-                "county":   county,
-                "link":     href or url,
-            })
-
-        if results:
-            break
-
-    # Strategy 3: look for heading tags near "obituar" context
-    if not results:
-        for heading in soup.find_all(["h1", "h2", "h3", "h4"]):
-            n = heading.get_text(strip=True)
-            if not n or len(n) < 4 or n in seen:
-                continue
-            # Skip non-name headings
-            if any(w in n.lower() for w in ["obituar", "home", "about", "service",
-                                             "contact", "welcome", "funeral", "recent"]):
-                continue
-            if len(n.split()) < 2 or len(n) > 60:
-                continue
-            if sum(c.isalpha() or c in " .,'-" for c in n) / max(len(n), 1) < 0.8:
-                continue
-
-            # Check nearby context for obituary-related words
-            parent = heading.parent
-            context = parent.get_text(" ", strip=True).lower() if parent else ""
-            if not any(w in context for w in ["born", "passed", "survived", "memorial",
-                                               "funeral", "service", "died", "death"]):
-                continue
-            seen.add(n)
-            link_el = heading.find("a", href=True) or heading.find_next("a", href=True)
-            href = link_el["href"] if link_el else ""
-            if href and not href.startswith("http"):
-                base = "/".join(url.split("/")[:3])
-                href = base + href if href.startswith("/") else ""
-            obit_date = best_date(context) or "See source"
-            results.append({
-                "name":     n,
-                "date":     "See source",
-                "location": f"{county} County, SC",
-                "source":   name,
-                "county":   county,
-                "link":     href or url,
-            })
+    # ── Strategy 4: headings with obituary context nearby ──
+    for heading in soup.find_all(["h2", "h3", "h4"]):
+        n = heading.get_text(strip=True)
+        if not is_real_name(n):
+            continue
+        parent = heading.parent
+        context = parent.get_text(" ", strip=True) if parent else ""
+        if not any(w in context.lower() for w in [
+            "born", "passed", "survived", "memorial", "funeral",
+            "service", "died", "death", "departed", "eternal", "heaven"
+        ]):
+            continue
+        add(n, make_link(heading), make_date(heading, context), context)
 
     return results
 
@@ -721,7 +814,11 @@ a.vl{{text-decoration:none;font-size:11px;font-family:Arial,sans-serif;padding:2
 <script>
 const C=['Greenville','Spartanburg','Anderson'];
 const CLR={{Greenville:'#2563eb',Spartanburg:'#7c3aed',Anderson:'#059669'}};
-const H={history_json};
+let H={{}};
+fetch('sc_obituaries_history.json?v='+Date.now())
+  .then(r=>r.json())
+  .then(data=>{{ H=data; renderToday(); renderHistory(); }})
+  .catch(e=>{{ document.body.innerHTML='<div style="padding:40px;font-family:Arial;color:red">Error loading data: '+e+'</div>'; }});
 const REPO='ownmidwest/sc-obituaries';
 const WORKFLOW='daily_scrape.yml';
 
@@ -893,8 +990,6 @@ function selDay(d,el){{
   el.classList.add('sel');document.getElementById('day-'+d).classList.add('active');
 }}
 
-renderToday();
-renderHistory();
 </script>
 </body></html>"""
 
