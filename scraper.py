@@ -99,6 +99,50 @@ LEGACY_HEADERS = {
 
 
 # ─────────────────────────────────────────────
+#  DATE EXTRACTION HELPER
+# ─────────────────────────────────────────────
+
+_DATE_PATS = [
+    # "passed/died/departed on April 17, 2026"
+    re.compile(
+        r'(?:passed(?:\s+away)?|died|departed|entered[^.]*rest|called[^.]*home|born)'
+        r'\s+(?:on\s+)?'
+        r'((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|'
+        r'Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
+        r'\s+\d{1,2},?\s+20\d\d)', re.I),
+    # Standalone "April 17, 2026"
+    re.compile(
+        r'\b((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|'
+        r'Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
+        r'\s+\d{1,2},?\s+20\d\d)\b', re.I),
+    # ISO: 2026-04-17
+    re.compile(r'\b(20\d\d-\d{2}-\d{2})\b'),
+    # US: 04/17/2026
+    re.compile(r'\b(\d{1,2}/\d{1,2}/20\d\d)\b'),
+]
+
+def extract_date(text):
+    if not text:
+        return ""
+    text = " ".join(text.split())
+    for pat in _DATE_PATS:
+        m = pat.search(text)
+        if m:
+            return (m.group(1) if m.lastindex else m.group(0)).strip()
+    return ""
+
+def best_date(*texts):
+    """Try each text in order, return first date found."""
+    for t in texts:
+        if not t:
+            continue
+        d = extract_date(t if isinstance(t, str) else t.get_text(" ", strip=True))
+        if d:
+            return d
+    return ""
+
+
+# ─────────────────────────────────────────────
 #  LEGACY.COM API  (primary, most reliable)
 # ─────────────────────────────────────────────
 
@@ -411,16 +455,22 @@ def fetch_funeral_home(name, url, county):
                 continue
             seen.add(n)
 
-            # Try to find link and date near this element
+            # Try to find link near this element
             parent = tag.parent
             link_el = tag.find("a", href=True) or (parent.find("a", href=True) if parent else None)
             href = link_el["href"] if link_el else ""
             if href and not href.startswith("http"):
                 base = "/".join(url.split("/")[:3])
                 href = base + href if href.startswith("/") else ""
+
+            # Date: try dedicated date element first, then full card text
             date_el = (tag.find_next(class_=re.compile(r"date|death|born|age", re.I))
                        or (parent.find(class_=re.compile(r"date|death|born|age", re.I)) if parent else None))
-            obit_date = date_el.get_text(strip=True) if date_el else "See source"
+            card_text = parent.get_text(" ", strip=True) if parent else ""
+            obit_date = best_date(
+                date_el.get_text(" ", strip=True) if date_el else "",
+                card_text,
+            ) or "See source"
 
             results.append({
                 "name":     n,
@@ -461,6 +511,7 @@ def fetch_funeral_home(name, url, county):
             if href and not href.startswith("http"):
                 base = "/".join(url.split("/")[:3])
                 href = base + href if href.startswith("/") else ""
+            obit_date = best_date(context) or "See source"
             results.append({
                 "name":     n,
                 "date":     "See source",
@@ -598,14 +649,12 @@ a.vl{{text-decoration:none;font-size:12px;font-family:Arial,sans-serif;padding:3
   <button class="tab" style="background:#7c3aed;color:white" onclick="show('spt')">Spartanburg</button>
   <button class="tab" style="background:#059669;color:white" onclick="show('and')">Anderson</button>
   <button class="tab" style="background:#b45309;color:white" onclick="show('hist')">7-Day History</button>
-  <button class="tab" style="background:#0891b2;color:white" onclick="show('dl')">Downloads</button>
   <button class="tab" style="background:#e5e7eb;color:#374151;margin-left:auto" onclick="show('src')">Sources</button>
 </div>
 <div id="p-all"  class="panel active"></div>
 <div id="p-gvl"  class="panel"></div>
 <div id="p-spt"  class="panel"></div>
 <div id="p-and"  class="panel"></div>
-<div id="p-dl"   class="panel"></div>
 <div id="p-hist" class="panel">
   <div class="card">
     <div class="ctitle" style="border-color:#b45309;color:#b45309;">7-Day History</div>
@@ -649,7 +698,7 @@ function tbl(entries,county){{
   if(!entries||!entries.length) return '<p class="empty">No obituaries found — the websites may have changed or had no new postings today.</p>';
   const c=CLR[county]||'#333';
   return '<table><thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Source</th><th>Link</th></tr></thead><tbody>'
-    +entries.map(e=>`<tr><td><strong>${{e.name}}</strong></td><td style="color:#666;font-size:13px">${{e.date}}</td><td style="color:#666;font-size:13px">${{e.location}}</td><td style="color:#666;font-size:13px">${{e.source}}</td><td>${{e.link?`<a class="vl" style="background:${{c}}" href="${{e.link}}" target="_blank">View</a>`:'—'}}</td></tr>`).join('')
+    +entries.map(e=>`<tr><td><strong>${{e.name}}</strong></td><td style="color:#666;font-size:13px">${{e.date||'—'}}</td><td style="color:#666;font-size:13px">${{e.location}}</td><td style="color:#666;font-size:13px">${{e.source}}</td><td>${{e.link?`<a class="vl" style="background:${{c}}" href="${{e.link}}" target="_blank">View</a>`:'—'}}</td></tr>`).join('')
     +'</tbody></table>';
 }}
 
@@ -661,15 +710,18 @@ function fmt(d){{
 function renderToday(){{
   const days=Object.keys(H).sort().reverse();
   if(!days.length) return;
-  const data=H[days[0]];
-  document.getElementById('p-all').innerHTML=C.map(co=>{{
-    const e=data[co]||[];
-    const c=CLR[co];
-    return `<div class="card"><div class="ctitle" style="border-color:${{c}};color:${{c}}">${{co}} County <span class="badge">${{e.length}} found</span></div>${{tbl(e,co)}}</div>`;
-  }}).join('');
+  const today=days[0];
+  const data=H[today];
+  document.getElementById('p-all').innerHTML=
+    C.map(co=>{{
+      const e=data[co]||[];const c=CLR[co];
+      return `<div class="card"><div class="ctitle" style="border-color:${{c}};color:${{c}}">${{co}} County <span class="badge">${{e.length}} found</span></div>${{tbl(e,co)}}${{dlBar(today,co)}}</div>`;
+    }}).join('')
+    +`<div class="card" style="background:#f9fafb;"><div class="ctitle" style="border-color:#374151;color:#374151;">Download All Counties — ${{fmt(today)}}</div>${{dlBar(today,'')}}</div>`;
   [['gvl','Greenville'],['spt','Spartanburg'],['and','Anderson']].forEach(([id,co])=>{{
     const e=data[co]||[];const c=CLR[co];
-    document.getElementById('p-'+id).innerHTML=`<div class="card"><div class="ctitle" style="border-color:${{c}};color:${{c}}">${{co}} County <span class="badge">${{e.length}} found</span></div>${{tbl(e,co)}}</div>`;
+    document.getElementById('p-'+id).innerHTML=
+      `<div class="card"><div class="ctitle" style="border-color:${{c}};color:${{c}}">${{co}} County <span class="badge">${{e.length}} found</span></div>${{tbl(e,co)}}${{dlBar(today,co)}}</div>`;
   }});
 }}
 
@@ -679,10 +731,12 @@ function renderHistory(){{
   document.getElementById('dtabs').innerHTML=days.map((d,i)=>`<span class="day-tab ${{i===0?'sel':''}}" onclick="selDay('${{d}}',this)">${{fmt(d)}}</span>`).join('');
   document.getElementById('dbody').innerHTML=days.map((d,i)=>{{
     const data=H[d];
-    return `<div id="day-${{d}}" class="day-panel ${{i===0?'active':''}}">`+C.map(co=>{{
+    const sections=C.map(co=>{{
       const e=data[co]||[];const c=CLR[co];
-      return `<div style="margin-bottom:20px"><h3 style="color:${{c}};border-left:4px solid ${{c}};padding-left:10px;margin-bottom:10px;font-size:16px">${{co}} County <span class="badge">${{e.length}}</span></h3>${{tbl(e,co)}}</div>`;
-    }}).join('')+'</div>';
+      return `<div style="margin-bottom:20px"><h3 style="color:${{c}};border-left:4px solid ${{c}};padding-left:10px;margin-bottom:10px;font-size:16px">${{co}} County <span class="badge">${{e.length}}</span></h3>${{tbl(e,co)}}${{dlBar(d,co)}}</div>`;
+    }}).join('');
+    const allDl=`<div style="padding-top:10px;border-top:2px solid #e5e7eb;margin-top:8px;">${{dlBar(d,'')}}</div>`;
+    return `<div id="day-${{d}}" class="day-panel ${{i===0?'active':''}}">${{sections}}${{allDl}}</div>`;
   }}).join('');
 }}
 
@@ -693,51 +747,62 @@ function selDay(d,el){{
 }}
 
 /* ── DOWNLOADS ── */
-function toCSV(rows){{
-  const hdr='Name,Date,Location,County,Source,Link';
-  const lines=rows.map(e=>
-    [e.name,e.date,e.location,e.county,e.source,e.link||'']
-      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')
-  );
+function toCSV(rows, extraCol){{
+  const hdr = extraCol
+    ? 'Name,Date,Location,County,Source,Link,Scraped Date'
+    : 'Name,Date,Location,County,Source,Link';
+  const lines = rows.map(e => {{
+    const base = [e.name,e.date||'',e.location,e.county,e.source,e.link||''];
+    if(extraCol) base.push(e.scraped_date||'');
+    return base.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
+  }});
   return [hdr,...lines].join('\r\n');
 }}
 
-function downloadFile(content,filename,mime){{
+function dlFile(content,filename,mime){{
   const blob=new Blob([content],{{type:mime}});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download=filename;
-  a.click();
+  a.download=filename;a.click();
   URL.revokeObjectURL(a.href);
 }}
 
-function dlDayCSV(dateStr){{
-  const data=H[dateStr];
-  if(!data)return;
-  const rows=C.flatMap(co=>data[co]||[]);
-  downloadFile(toCSV(rows),`sc_obituaries_${{dateStr}}.csv`,'text/csv');
+function dlCSV(dateStr,county){{
+  const data=H[dateStr]; if(!data) return;
+  const rows = county ? (data[county]||[]) : C.flatMap(co=>data[co]||[]);
+  const label = county ? county.toLowerCase() : 'all';
+  dlFile(toCSV(rows), `sc_obituaries_${{dateStr}}_${{label}}.csv`, 'text/csv');
 }}
 
-function dlDayJSON(dateStr){{
-  const data=H[dateStr];
-  if(!data)return;
-  downloadFile(JSON.stringify({{date:dateStr,counties:data}},null,2),`sc_obituaries_${{dateStr}}.json`,'application/json');
+function dlJSON(dateStr,county){{
+  const data=H[dateStr]; if(!data) return;
+  const out = county ? {{date:dateStr,county:county,entries:data[county]||[]}}
+                     : {{date:dateStr,counties:data}};
+  const label = county ? county.toLowerCase() : 'all';
+  dlFile(JSON.stringify(out,null,2), `sc_obituaries_${{dateStr}}_${{label}}.json`, 'application/json');
 }}
 
 function dlWeekCSV(){{
   const rows=Object.entries(H).flatMap(([d,data])=>
     C.flatMap(co=>(data[co]||[]).map(e=>{{return{{...e,scraped_date:d}}}}))
   );
-  const hdr='Name,Date,Location,County,Source,Link,Scraped Date';
-  const lines=rows.map(e=>
-    [e.name,e.date,e.location,e.county,e.source,e.link||'',e.scraped_date]
-      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')
-  );
-  downloadFile([hdr,...lines].join('\r\n'),'sc_obituaries_7day.csv','text/csv');
+  dlFile(toCSV(rows,true),'sc_obituaries_7day.csv','text/csv');
 }}
 
 function dlWeekJSON(){{
-  downloadFile(JSON.stringify(H,null,2),'sc_obituaries_7day.json','application/json');
+  dlFile(JSON.stringify(H,null,2),'sc_obituaries_7day.json','application/json');
+}}
+
+function dlBar(dateStr, county){{
+  const c = county ? CLR[county] : '#374151';
+  const label = county || 'All Counties';
+  return `<div style="display:flex;gap:6px;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid #f0f0f0;flex-wrap:wrap;">
+    <span style="font-family:Arial,sans-serif;font-size:11px;color:#888;margin-right:4px;">Download ${{label}}:</span>
+    <button onclick="dlCSV('${{dateStr}}','${{county||''}}')" style="padding:4px 12px;background:${{c}};color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">CSV</button>
+    <button onclick="dlJSON('${{dateStr}}','${{county||''}}')" style="padding:4px 12px;background:${{c}};color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;opacity:.8">JSON</button>
+    ${{!county ? `<button onclick="dlWeekCSV()" style="padding:4px 12px;background:#b45309;color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">7-Day CSV</button>
+    <button onclick="dlWeekJSON()" style="padding:4px 12px;background:#b45309;color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;opacity:.8">7-Day JSON</button>` : ''}}
+  </div>`;
 }}
 
 function renderDownloads(){{
@@ -783,7 +848,7 @@ function renderDownloads(){{
     </div>`;
 }}
 
-renderToday();renderHistory();renderDownloads();
+renderToday();renderHistory();
 </script>
 </body></html>"""
 
