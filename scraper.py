@@ -53,26 +53,36 @@ LEGACY_PAPERS = {
 # Funeral home sites per county — verified working URLs
 FUNERAL_HOMES = {
     "Greenville": [
-        {"name": "Mackey Mortuary",             "url": "https://www.mackeymortuary.com/obituaries"},
-        {"name": "Thomas McAfee Funeral Homes", "url": "https://www.thomasmcafee.com/obituaries"},
-        {"name": "Legacy.com Greenville area",  "url": "https://www.legacy.com/us/obituaries/local/south-carolina/greenville-area"},
+        # Confirmed working sources with real obituaries
+        {"name": "Watkins Garrett & Woods Mortuary", "url": "https://www.wgwmortuary.com/obituaries"},
+        {"name": "Thomas McAfee Funeral Homes",      "url": "https://www.thomasmcafee.com/obituaries/obituary-listings"},
+        {"name": "Mackey Mortuary",                  "url": "https://www.mackeymortuary.com/obituaries"},
+        {"name": "Robinson Funeral Homes",           "url": "https://www.robinsonfuneralhomes.com/obituaries"},
+        {"name": "Cremation Society of SC",          "url": "https://www.cremationsocietyofsc.com/obituaries"},
+        {"name": "Dignity Memorial Greenville",      "url": "https://www.dignitymemorial.com/obituaries/greenville-sc"},
+        {"name": "Legacy.com Greenville County",     "url": "https://www.legacy.com/us/obituaries/local/south-carolina/greenville-county"},
     ],
     "Spartanburg": [
-        {"name": "Floyd Mortuary",              "url": "https://www.floydmortuary.com/obituaries"},
-        {"name": "Community Mortuary",          "url": "https://www.communitymortuaryinc.com/listings"},
-        {"name": "Bobo Funeral Chapel",         "url": "https://www.bobofuneralchapel.com/listings"},
-        {"name": "Roberts Funeral Home",        "url": "https://www.robertsfhsc.com/listings"},
-        {"name": "E.L. Collins Funeral Home",   "url": "https://www.elcollinsfh.com/obituaries"},
-        {"name": "Legacy.com Spartanburg area", "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-area"},
+        # Confirmed working sources with real obituaries
+        {"name": "Floyd Mortuary",                   "url": "https://www.floydmortuary.com/obituaries"},
+        {"name": "Bobo Funeral Chapel",              "url": "https://www.bobofuneralchapel.com/listings"},
+        {"name": "Roberts Funeral Home",             "url": "https://www.robertsfhsc.com/listings"},
+        {"name": "E.L. Collins Funeral Home",        "url": "https://www.elcollinsfh.com/obituaries"},
+        {"name": "Community Mortuary",               "url": "https://www.communitymortuaryinc.com/listings"},
+        {"name": "Seawright Funeral Home",           "url": "https://seawright-funeralhome.com/obituaries"},
+        {"name": "J.W. Woodward Funeral Home",       "url": "https://www.articobits.com/obituaries/jw-woodward-fh/"},
+        {"name": "Legacy.com Spartanburg",           "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-area"},
     ],
     "Anderson": [
-        {"name": "McDougald Funeral Home",      "url": "https://www.mcdougaldfuneralhome.com/obituaries/obituary-listings"},
-        {"name": "Marcus D. Brown Funeral Home","url": "https://www.marcusdbrownfuneralhome.com/listings"},
-        {"name": "D.B. Walker Funeral Services","url": "https://www.dbwalkerfuneralservices.com/listings"},
-        {"name": "Johnson Funeral Home",        "url": "https://www.johnsonfuneralhm.com/listings"},
-        {"name": "Sosebee Mortuary",            "url": "https://sosebeemortuary.com/obituaries"},
-        {"name": "Anderson Simple Cremations",  "url": "https://andersonsimplecremations.com/obituary/"},
-        {"name": "Legacy.com Anderson area",    "url": "https://www.legacy.com/us/obituaries/local/south-carolina/anderson"},
+        # Confirmed working sources with real obituaries
+        {"name": "Sosebee Mortuary",                 "url": "https://sosebeemortuary.com/obituaries"},
+        {"name": "Anderson Simple Cremations",       "url": "https://andersonsimplecremations.com/obituary/"},
+        {"name": "D.B. Walker Funeral Services",     "url": "https://www.dbwalkerfuneralservices.com/listings"},
+        {"name": "Marcus D. Brown Funeral Home",     "url": "https://www.marcusdbrownfuneralhome.com/listings"},
+        {"name": "Johnson Funeral Home",             "url": "https://www.johnsonfuneralhm.com/listings"},
+        {"name": "Rich-Colonial Funeral Home",       "url": "https://www.rich-colonial-funeral-home.com/listings"},
+        {"name": "McDougald Funeral Home",           "url": "https://www.mcdougaldfuneralhome.com/obituaries/obituary-listings"},
+        {"name": "Legacy.com Anderson",              "url": "https://www.legacy.com/us/obituaries/local/south-carolina/anderson"},
     ],
 }
 
@@ -456,7 +466,7 @@ def is_real_name(text):
         "county","state","city","town","village","markers","memorials",
         "south","north","east","west","central","upper","lower",
         # More UI/nav terms seen in real scrape output
-        "cookie","preferences","general","tour","photographic","cremations","simple","complex",
+        "cookie","preferences","general","tour","photographic","cremations","simple","complex","consultation","lists","video","virtual","interactive","digital","online","live",
         "virtual","search","filter","sort","featured","special","online",
         "donation","donate","record","register","login","account","password",
         "brochure","download","print","share","copy","save","export",
