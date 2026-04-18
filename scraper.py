@@ -392,85 +392,109 @@ def fetch_legacy_newspaper_pages(county, seen_names=None):
 def is_real_name(text):
     """
     Return True only if text looks like an actual person's name.
-    Rejects cities, states, buttons, headings, and other page junk.
+    Very strict — requires pattern of a real human name.
     """
     if not text:
         return False
     t = text.strip()
 
-    # Length bounds
-    if len(t) < 5 or len(t) > 80:
+    # Length bounds — names are 5-60 chars
+    if len(t) < 5 or len(t) > 60:
         return False
 
-    # Must have at least 2 words
-    words = t.split()
-    if len(words) < 2:
-        return False
-
-    # Every word must start with a capital letter (names are Title Case)
-    # Allow particles: de, van, von, la, le, of, jr, sr, ii, iii, iv
-    particles = {"de","van","von","la","le","of","jr","sr","ii","iii","iv","the","and","rev","dr","mr","mrs","ms","prof","col","sgt","cpl","pvt","lt","capt","maj","gen","brig","cdr"}
-    for w in words:
-        clean = w.strip(".,\'\"-")
-        if not clean:
-            continue
-        if clean.lower() in particles:
-            continue
-        clean = clean.rstrip(".")
-        if not clean:
-            continue
-        if not clean[0].isupper():
-            return False
-
-    # Must be mostly letters, spaces, and name punctuation
-    letter_ratio = sum(c.isalpha() or c in " .,\'-\"" for c in t) / len(t)
-    if letter_ratio < 0.85:
-        return False
-
-    # Hard reject list — common non-name strings found on funeral home pages
-    reject_words = [
-        "send flowers", "add a memory", "share obituary", "plant a tree",
-        "light a candle", "sign guestbook", "leave condolence", "view obituary",
-        "read more", "learn more", "click here", "see more", "load more",
-        "all obituaries", "recent obituaries", "obituary listing",
-        "funeral home", "mortuary", "cremation", "chapel", "memorial",
-        "arrangements", "services held", "visitation", "graveside",
-        "south carolina", "north carolina", "georgia", "tennessee",
-        "county, sc", "county, nc", ", sc", ", nc", ", ga",
-        "home", "about", "contact", "directions", "staff", "careers",
-        "preplanning", "pre-planning", "grief support", "resources",
-        "privacy policy", "terms of use", "accessibility",
-        "phone", "fax", "email", "address", "copyright",
-        "facebook", "twitter", "instagram", "youtube",
-        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
-        "january", "february", "march", "april", "may", "june",
-        "july", "august", "september", "october", "november", "december",
-        " 7am", " 8am", " 9am", " 10am", " 11am", " 12pm", " 1pm", " 2pm", " 3pm",
-    ]
-    tl = t.lower()
-    if any(rw in tl for rw in reject_words):
-        return False
-
-    # Reject if it looks like a city/state pattern: "Word, XX" e.g. "Union, SC"
-    if re.match(r'^[A-Z][a-z]+(?: [A-Z][a-z]+)*, [A-Z]{2}$', t):
-        return False
-
-    # Reject pure ALL CAPS (usually headings/buttons)
-    if t.upper() == t and len(t) > 6:
-        return False
-
-    # Reject if contains digits (addresses, phone numbers, dates)
+    # No digits — dates, phone numbers, addresses
     if any(c.isdigit() for c in t):
         return False
 
-    # Must contain at least one vowel per word (real names have vowels)
-    particles_lower = {"de","van","von","la","le","of","jr","sr","ii","iii","iv","the","and","rev","dr","mr","mrs","ms","prof","col","sgt","cpl","pvt","lt","capt","maj","gen","brig","cdr","st","mt"}
+    # Must have 2-5 words only
+    words = t.split()
+    if len(words) < 2 or len(words) > 6:
+        return False
+
+    # Must be mostly alphabetic + name punctuation
+    letter_ratio = sum(c.isalpha() or c in " .,'-\"" for c in t) / len(t)
+    if letter_ratio < 0.90:
+        return False
+
+    # Reject if it looks like "City, ST"
+    if re.match(r'^[A-Z][a-z]+(?: [A-Z][a-z]+)*, [A-Z]{2}$', t):
+        return False
+
+    # Reject ALL CAPS strings (headings/buttons)
+    if t.upper() == t:
+        return False
+
+    # Known title prefixes — these are OK as first word
+    titles = {"mr","mrs","ms","miss","dr","rev","sr","jr","prof","col","sgt","cpl",
+              "pvt","lt","capt","maj","gen","brig","cdr","hon","atty","det"}
+
+    # Known name particles — OK anywhere
+    particles = {"de","van","von","la","le","of","the","and","st","mc","mac",
+                 "jr","sr","ii","iii","iv","v"}
+
+    # Hard reject words — if ANY word matches, it's not a name
+    # These are verbs, nouns, adjectives common in UI/web pages
+    reject_single = {
+        "view","request","send","add","sign","leave","read","learn","click",
+        "load","share","plant","light","all","recent","our","your","my",
+        "frequently","asked","pricing","gallery","appointment","flowers",
+        "candle","guestbook","condolence","obituary","obituaries","listing",
+        "services","service","arrangements","visitation","graveside","chapel",
+        "memorial","mortuary","cremation","funeral","home","store","shop",
+        "about","contact","directions","staff","careers","resources","support",
+        "privacy","policy","terms","accessibility","copyright","sitemap",
+        "preplanning","planning","grief","questions","faq","information",
+        "phone","fax","email","address","location","hours","map","news",
+        "facebook","twitter","instagram","youtube","linkedin","social",
+        "monday","tuesday","wednesday","thursday","friday","saturday","sunday",
+        "january","february","march","april","may","june","july","august",
+        "september","october","november","december","urn","casket","vault",
+        "headstone","monument","flower","tribute","legacy","featured",
+        "affordable","professional","compassionate","dedicated","trusted",
+        "welcome","thank","please","available","complete","full","new","free",
+        "schedule","purchase","order","payment","plan","pre","post",
+        "county","state","city","town","village","markers","memorials",
+        "south","north","east","west","central","upper","lower",
+        # More UI/nav terms seen in real scrape output
+        "cookie","preferences","general","tour","photographic","cremations","simple","complex",
+        "virtual","search","filter","sort","featured","special","online",
+        "donation","donate","record","register","login","account","password",
+        "brochure","download","print","share","copy","save","export",
+        "directions","parking","accessibility","feedback","review","rating",
+        "package","option","selection","choice","item","product","category",
+    }
+
     for w in words:
-        clean = w.strip(".,\'-\"").rstrip(".").lower()
-        if clean in particles_lower:
+        clean = w.strip(".,'\"-").rstrip(".").lower()
+        if not clean:
             continue
+        # First word can be a title
+        if w == words[0] and clean in titles:
+            continue
+        # Particles allowed anywhere
+        if clean in particles:
+            continue
+        # Any word matching reject list = not a name
+        if clean in reject_single:
+            return False
+        # Every non-particle word must start with capital
+        original = w.strip(".,'\"-")
+        if original and not original[0].isupper():
+            return False
+        # Must have a vowel (real name syllables)
         if len(clean) > 2 and not any(v in clean for v in "aeiou"):
             return False
+
+    # Final check: must have at least one word that looks like a proper surname
+    # (more than 2 chars, starts with capital, not a particle or title)
+    has_surname = False
+    for w in words[1:]:  # skip first word (could be title)
+        clean = w.strip(".,'\"-").rstrip(".")
+        if len(clean) >= 2 and clean[0].isupper() and clean.lower() not in particles and clean.lower() not in titles:
+            has_surname = True
+            break
+    if not has_surname:
+        return False
 
     return True
 
