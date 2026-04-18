@@ -598,12 +598,14 @@ a.vl{{text-decoration:none;font-size:12px;font-family:Arial,sans-serif;padding:3
   <button class="tab" style="background:#7c3aed;color:white" onclick="show('spt')">Spartanburg</button>
   <button class="tab" style="background:#059669;color:white" onclick="show('and')">Anderson</button>
   <button class="tab" style="background:#b45309;color:white" onclick="show('hist')">7-Day History</button>
+  <button class="tab" style="background:#0891b2;color:white" onclick="show('dl')">Downloads</button>
   <button class="tab" style="background:#e5e7eb;color:#374151;margin-left:auto" onclick="show('src')">Sources</button>
 </div>
 <div id="p-all"  class="panel active"></div>
 <div id="p-gvl"  class="panel"></div>
 <div id="p-spt"  class="panel"></div>
 <div id="p-and"  class="panel"></div>
+<div id="p-dl"   class="panel"></div>
 <div id="p-hist" class="panel">
   <div class="card">
     <div class="ctitle" style="border-color:#b45309;color:#b45309;">7-Day History</div>
@@ -690,7 +692,98 @@ function selDay(d,el){{
   el.classList.add('sel');document.getElementById('day-'+d).classList.add('active');
 }}
 
-renderToday();renderHistory();
+/* ── DOWNLOADS ── */
+function toCSV(rows){{
+  const hdr='Name,Date,Location,County,Source,Link';
+  const lines=rows.map(e=>
+    [e.name,e.date,e.location,e.county,e.source,e.link||'']
+      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')
+  );
+  return [hdr,...lines].join('\r\n');
+}}
+
+function downloadFile(content,filename,mime){{
+  const blob=new Blob([content],{{type:mime}});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}}
+
+function dlDayCSV(dateStr){{
+  const data=H[dateStr];
+  if(!data)return;
+  const rows=C.flatMap(co=>data[co]||[]);
+  downloadFile(toCSV(rows),`sc_obituaries_${{dateStr}}.csv`,'text/csv');
+}}
+
+function dlDayJSON(dateStr){{
+  const data=H[dateStr];
+  if(!data)return;
+  downloadFile(JSON.stringify({{date:dateStr,counties:data}},null,2),`sc_obituaries_${{dateStr}}.json`,'application/json');
+}}
+
+function dlWeekCSV(){{
+  const rows=Object.entries(H).flatMap(([d,data])=>
+    C.flatMap(co=>(data[co]||[]).map(e=>{{return{{...e,scraped_date:d}}}}))
+  );
+  const hdr='Name,Date,Location,County,Source,Link,Scraped Date';
+  const lines=rows.map(e=>
+    [e.name,e.date,e.location,e.county,e.source,e.link||'',e.scraped_date]
+      .map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')
+  );
+  downloadFile([hdr,...lines].join('\r\n'),'sc_obituaries_7day.csv','text/csv');
+}}
+
+function dlWeekJSON(){{
+  downloadFile(JSON.stringify(H,null,2),'sc_obituaries_7day.json','application/json');
+}}
+
+function renderDownloads(){{
+  const days=Object.keys(H).sort().reverse();
+  const today=days[0]||'';
+  const totalToday=today?C.reduce((n,co)=>n+(H[today][co]||[]).length,0):0;
+  const totalWeek=Object.values(H).reduce((n,d)=>n+C.reduce((m,co)=>m+(d[co]||[]).length,0),0);
+  document.getElementById('p-dl').innerHTML=`
+    <div class="card">
+      <div class="ctitle" style="border-color:#0891b2;color:#0891b2;">Download Today's Data</div>
+      <p style="color:#666;font-family:Arial,sans-serif;font-size:13px;margin-bottom:14px;">${{today||'No data yet'}} &nbsp;·&nbsp; ${{totalToday}} obituaries</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button onclick="dlDayCSV('${{today}}')" style="padding:9px 20px;background:#0891b2;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Download CSV</button>
+        <button onclick="dlDayJSON('${{today}}')" style="padding:9px 20px;background:#0e7490;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Download JSON</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ctitle" style="border-color:#0891b2;color:#0891b2;">Download Full 7-Day History</div>
+      <p style="color:#666;font-family:Arial,sans-serif;font-size:13px;margin-bottom:14px;">${{days.length}} days stored &nbsp;·&nbsp; ${{totalWeek}} total obituaries</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button onclick="dlWeekCSV()" style="padding:9px 20px;background:#0891b2;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Download 7-Day CSV</button>
+        <button onclick="dlWeekJSON()" style="padding:9px 20px;background:#0e7490;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Download 7-Day JSON</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ctitle" style="border-color:#0891b2;color:#0891b2;">Download by Day</div>
+      <p style="color:#666;font-family:Arial,sans-serif;font-size:13px;margin-bottom:14px;">Pick a specific day to download</p>
+      ${{days.map(d=>{{
+        const cnt=C.reduce((n,co)=>n+(H[d][co]||[]).length,0);
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:6px;margin-bottom:6px;background:#f9f9f9;border:1px solid #eee;">
+          <span style="font-family:Arial,sans-serif;font-size:13px;font-weight:500;">${{fmt(d)}} &nbsp;<span style="color:#888;font-weight:normal;">${{cnt}} results</span></span>
+          <div style="display:flex;gap:8px;">
+            <button onclick="dlDayCSV('${{d}}')" style="padding:5px 12px;background:#0891b2;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">CSV</button>
+            <button onclick="dlDayJSON('${{d}}')" style="padding:5px 12px;background:#0e7490;color:white;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">JSON</button>
+          </div>
+        </div>`;
+      }}).join('')}}
+    </div>
+    <div class="card">
+      <div class="ctitle" style="border-color:#374151;color:#374151;">Raw history file</div>
+      <p style="color:#666;font-family:Arial,sans-serif;font-size:13px;margin-bottom:12px;">The master history file lives in your GitHub repo and is updated every time the scraper runs.</p>
+      <a href="https://ownmidwest.github.io/sc-obituaries/sc_obituaries_history.json" target="_blank" style="padding:9px 20px;background:#374151;color:white;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;display:inline-block;">View raw JSON file</a>
+    </div>`;
+}}
+
+renderToday();renderHistory();renderDownloads();
 </script>
 </body></html>"""
 
