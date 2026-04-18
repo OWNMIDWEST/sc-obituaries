@@ -625,6 +625,36 @@ def fetch_funeral_home(name, url, county):
                     continue
                 if fn in family:
                     continue
+
+                # Reject institutions, places, and organizations — not people
+                fn_lower = fn.lower()
+                institution_words = {
+                    # Church/religious
+                    "church", "chapel", "cathedral", "ministry", "ministries", "missionary",
+                    "baptist", "methodist", "presbyterian", "catholic", "lutheran", "episcopal",
+                    "pentecostal", "apostolic", "assembly", "assemblies", "fellowship",
+                    "temple", "synagogue", "mosque", "parish",
+                    # Schools/education
+                    "school", "academy", "college", "university", "institute", "district",
+                    "elementary", "middle", "high", "class",
+                    # Businesses/organizations
+                    "manor", "lodge", "gardens", "estates", "plantation", "farms",
+                    "hospital", "medical", "clinic", "center", "centre",
+                    "chamber", "association", "society", "club", "foundation",
+                    "corporation", "company", "industries", "services", "group",
+                    "funeral", "mortuary", "cremation", "cemetery",
+                    # Facilities/places without obvious institution words
+                    "terrace", "inn", "commons", "place", "court", "crossing",
+                    "pointe", "point", "landing", "ridge", "view", "vista",
+                    # Common SC city names that appear in obituaries
+                    "inman", "cowpens", "pacolet", "woodruff", "gaffney",
+                    "landrum", "chesnee", "boiling", "wellford", "lyman",
+                    "campobello", "pauline", "roebuck", "duncan",
+                    "simpsonville", "mauldin", "easley", "pickens", "greer",
+                }
+                fn_words = set(w.strip(".,'\"-").lower() for w in fn.split())
+                if fn_words & institution_words:
+                    continue
                 # Exclude only if the candidate IS the deceased — not just shares a last name.
                 # Allow family members who share only the last name (spouse, children, grandchildren).
                 fn_parts = set(w.strip(".\'\"-").lower() for w in fn.split() if len(w) > 2)
