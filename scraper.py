@@ -53,17 +53,22 @@ LEGACY_PAPERS = {
 # Funeral home sites per county — verified working URLs
 FUNERAL_HOMES = {
     "Greenville": [
-        # Confirmed working sources with real obituaries
         {"name": "Watkins Garrett & Woods Mortuary", "url": "https://www.wgwmortuary.com/obituaries"},
+        {"name": "Heritage Funeral Home Simpsonville", "url": "https://cannonbyrd.com/obituaries/"},
+        {"name": "Cannon-Byrd Funeral Home",          "url": "https://cannonbyrd.com/obituaries/"},
         {"name": "Thomas McAfee Funeral Homes",      "url": "https://www.thomasmcafee.com/obituaries/obituary-listings"},
         {"name": "Mackey Mortuary",                  "url": "https://www.mackeymortuary.com/obituaries"},
         {"name": "Robinson Funeral Homes",           "url": "https://www.robinsonfuneralhomes.com/obituaries"},
         {"name": "Cremation Society of SC",          "url": "https://www.cremationsocietyofsc.com/obituaries"},
         {"name": "Dignity Memorial Greenville",      "url": "https://www.dignitymemorial.com/obituaries/greenville-sc"},
+        {"name": "Beasley Funeral Home",             "url": "https://www.beasleyfuneralhome.com/obituaries"},
+        {"name": "Graceland Mortuary",               "url": "https://www.gracelandmortuary.com/obituaries"},
+        {"name": "The Palmetto Mortuary",            "url": "https://www.thepalmettomortuary.com/obituaries"},
+        {"name": "Hatcher Funeral Home",             "url": "https://www.hatcherfuneralhome.com/obituaries"},
         {"name": "Legacy.com Greenville County",     "url": "https://www.legacy.com/us/obituaries/local/south-carolina/greenville-county"},
+        {"name": "Legacy.com Greenville Area",       "url": "https://www.legacy.com/us/obituaries/local/south-carolina/greenville-area"},
     ],
     "Spartanburg": [
-        # Confirmed working sources with real obituaries
         {"name": "Floyd Mortuary",                   "url": "https://www.floydmortuary.com/listings"},
         {"name": "Bobo Funeral Chapel",              "url": "https://www.bobofuneralchapel.com/listings"},
         {"name": "Roberts Funeral Home",             "url": "https://www.robertsfhsc.com/listings"},
@@ -71,10 +76,14 @@ FUNERAL_HOMES = {
         {"name": "Community Mortuary",               "url": "https://www.communitymortuaryinc.com/listings"},
         {"name": "Seawright Funeral Home",           "url": "https://seawright-funeralhome.com/obituaries"},
         {"name": "J.W. Woodward Funeral Home",       "url": "https://www.articobits.com/obituaries/jw-woodward-fh/"},
-        {"name": "Legacy.com Spartanburg",           "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-area"},
+        {"name": "Calvert-Heald Funeral Home",       "url": "https://www.calvertheald.com/obituaries"},
+        {"name": "Allen Memorial Funeral Home",      "url": "https://www.allenmemorialfuneralhome.com/obituaries"},
+        {"name": "Legacy.com Spartanburg County",    "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-county"},
+        {"name": "Legacy.com Spartanburg Area",      "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-area"},
+        {"name": "Legacy.com Herald-Journal",        "url": "https://www.legacy.com/us/obituaries/spartanburg/today"},
+        {"name": "Legacy.com Spartanburg Today",     "url": "https://www.legacy.com/us/obituaries/today/south-carolina/spartanburg-area"},
     ],
     "Anderson": [
-        # Confirmed working sources with real obituaries
         {"name": "Sosebee Mortuary",                 "url": "https://sosebeemortuary.com/obituaries"},
         {"name": "Anderson Simple Cremations",       "url": "https://andersonsimplecremations.com/obituary/"},
         {"name": "D.B. Walker Funeral Services",     "url": "https://www.dbwalkerfuneralservices.com/listings"},
@@ -82,7 +91,12 @@ FUNERAL_HOMES = {
         {"name": "Johnson Funeral Home",             "url": "https://www.johnsonfuneralhm.com/listings"},
         {"name": "Rich-Colonial Funeral Home",       "url": "https://www.rich-colonial-funeral-home.com/listings"},
         {"name": "McDougald Funeral Home",           "url": "https://www.mcdougaldfuneralhome.com/obituaries/obituary-listings"},
-        {"name": "Legacy.com Anderson",              "url": "https://www.legacy.com/us/obituaries/local/south-carolina/anderson"},
+        {"name": "Tribute Funeral Homes Anderson",   "url": "https://www.tributefuneralhomes.com/obituaries/anderson-sc"},
+        {"name": "Rainey Funeral Home",              "url": "https://www.raineyfuneralhome.com/obituaries"},
+        {"name": "Legacy.com Anderson County",       "url": "https://www.legacy.com/us/obituaries/local/south-carolina/anderson-county"},
+        {"name": "Sullivan-King Mortuary",           "url": "https://www.sullivanking.com/obits"},
+        {"name": "Legacy.com Anderson Today",        "url": "https://www.legacy.com/us/obituaries/today/south-carolina/anderson"},
+        {"name": "Legacy.com Anderson Area",         "url": "https://www.legacy.com/us/obituaries/local/south-carolina/anderson"},
     ],
 }
 
