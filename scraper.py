@@ -571,26 +571,44 @@ def fetch_funeral_home(name, url, county):
                 if len(w) > 1:
                     exclude.add(w)
 
-        # Sentence-boundary terminator — stops at real new sentences NOT at Jr./Sr./Dr. abbreviations
-        _end = r'(?=\.\s*(?:Funeral|Services|Visitation|Born|In lieu|Memorial|Burial|Graveside|Interment|She was|He was|They were|Please|Friends may|Arrangements)|\Z)'
+        # Sentence-boundary terminator — stops at real new sentences, NOT at Jr./Sr./Dr. abbreviations
+        # Covers common obituary closing phrases that signal the end of the survivors section
+        _end = (
+            r'(?=\.\s*(?:' +
+            r'Funeral|Services|Visitation|Born|In lieu|Memorial|Burial|Graveside|' +
+            r'Interment|Cremation|Celebration of|She was born|He was born|' +
+            r'She will be|He will be|She is remembered|He is remembered|' +
+            r'She lived|He lived|Please|Friends may|Arrangements|Condolences|' +
+            r'Pallbearers|Honorary|A celebration|The family|' +
+            r'Preceding her|Preceding him|Preceded in' +
+            r')|\ Z)'
+        )
 
-        # Multiple patterns for "survived by" sections
+        # All known "survived by" phrase patterns — including regional/cultural variants
         patterns = [
             r'(?:is|are)\s+survived\s+by[:\s]+(.+?)' + _end,
             r'also\s+survived\s+by[:\s]+(.+?)' + _end,
             r'survivors?\s+include[:\s]+(.+?)' + _end,
+            r'leaves?\s+to\s+cherish(?:\s+(?:his|her|their))?\s+(?:memory|memories|life)[:\s]+(.+?)' + _end,
+            r'left\s+to\s+cherish(?:\s+(?:his|her|their))?\s+(?:memory|memories)[:\s]+(.+?)' + _end,
             r'leaves?\s+to\s+cherish[:\s]+(.+?)' + _end,
             r'leaves?\s+behind[:\s]+(.+?)' + _end,
             r'surviving\s+are[:\s]+(.+?)' + _end,
             r'those\s+left\s+to\s+cherish[:\s]+(.+?)' + _end,
             r'left\s+to\s+mourn[:\s]+(.+?)' + _end,
+            r'left\s+to\s+celebrate[:\s]+(.+?)' + _end,
+            r'cherishing(?:\s+(?:his|her|their))?\s+memory[:\s]+(.+?)' + _end,
         ]
 
         chunks = []
+        seen_chunks = set()
         for pat in patterns:
-            m = re.search(pat, text, re.I | re.S)
-            if m:
-                chunks.append(m.group(1))
+            # Use findall to catch MULTIPLE survived-by sections in long obituaries
+            for m in re.finditer(pat, text, re.I | re.S):
+                chunk = m.group(1).strip()
+                if chunk and chunk not in seen_chunks:
+                    seen_chunks.add(chunk)
+                    chunks.append(chunk)
 
         # Use full text if short enough and no pattern matched (listing previews)
         if not chunks and len(text) < 800:
