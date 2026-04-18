@@ -127,18 +127,18 @@ LEGACY_HEADERS = {
 # ─────────────────────────────────────────────
 
 _DATE_PATS = [
-    # "passed/died/departed on April 17, 2026"
+    # "passed/died/departed on April 17th, 2026" — with or without ordinal suffix
     re.compile(
-        r'(?:passed(?:\s+away)?|died|departed|entered[^.]*rest|called[^.]*home|born)'
+        r'(?:passed(?:\s+away)?|died|departed|entered[^.]*rest|called[^.]*home|transitioned|born)'
         r'\s+(?:on\s+)?'
         r'((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|'
         r'Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
-        r'\s+\d{1,2},?\s+20\d\d)', re.I),
-    # Standalone "April 17, 2026"
+        r'\s+\d{1,2}(?:st|nd|rd|th)?,?\s+20\d\d)', re.I),
+    # Standalone "April 17, 2026" or "April 17th, 2026"
     re.compile(
         r'\b((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|'
         r'Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)'
-        r'\s+\d{1,2},?\s+20\d\d)\b', re.I),
+        r'\s+\d{1,2}(?:st|nd|rd|th)?,?\s+20\d\d)\b', re.I),
     # ISO: 2026-04-17
     re.compile(r'\b(20\d\d-\d{2}-\d{2})\b'),
     # US: 04/17/2026
@@ -702,9 +702,12 @@ def fetch_funeral_home(name, url, county):
         seen.add(n)
 
         # Fetch the full obituary page whenever card text seems incomplete.
-        # Threshold of 600 chars — if card text is shorter, it's likely just a preview.
+        # Always fetch if no survived-by phrase found, or if text is short.
+        import re as _re
+        _surv_pat = _re.compile(r'surviv|cherish|mourn|leaves? to|left to', _re.I)
         full_text = card_text
-        if link and len(card_text) < 600:
+        needs_full = (len(card_text) < 800) or (not _surv_pat.search(card_text))
+        if link and needs_full:
             fetched = fetch_full_text(link)
             if fetched and len(fetched) > len(card_text):
                 full_text = fetched
