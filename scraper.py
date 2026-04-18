@@ -477,6 +477,7 @@ def is_real_name(text):
         "welcome","thank","please","available","complete","full","new","free",
         "schedule","purchase","order","payment","plan","pre","post",
         "county","state","city","town","village","markers","memorials",
+        "immediate","need","overview","next","previous","navigation","pagination",
         "south","north","east","west","central","upper","lower",
         # More UI/nav terms seen in real scrape output
         "cookie","preferences","general","tour","photographic","cremations","simple","complex","consultation","lists","video","virtual","interactive","digital","online","live",
@@ -614,6 +615,8 @@ def fetch_funeral_home(name, url, county):
             chunks.append(text)
 
         for chunk in chunks:
+            # Strip "Previous [Name]" and "Next [Name]" pagination labels
+            chunk = re.sub(r'\b(?:Previous|Next)\b', ' ', chunk, flags=re.I)
             found = re.findall(r'\b([A-Z][a-z]+(?:\s+(?:[A-Z][a-z]+|[A-Z]\.)){1,3})\b', chunk)
             for fn in found:
                 fn = fn.strip()
@@ -647,6 +650,18 @@ def fetch_funeral_home(name, url, county):
                     "landrum", "chesnee", "boiling", "wellford", "lyman",
                     "campobello", "pauline", "roebuck", "duncan",
                     "simpsonville", "mauldin", "easley", "pickens", "greer",
+                    # Navigation/pagination text from listing pages
+                    "previous", "next", "pagination",
+                    # Religious phrases (not names)
+                    "christ", "jesus", "savior", "heaven", "lord", "almighty",
+                    "blessed", "holy", "eternal", "grace", "amazing",
+                    # Street/address indicators
+                    "blvd", "boulevard", "highway", "hwy", "ave", "rd", "drive", "hospice",
+                    # Military/organizational
+                    "department", "corps", "regiment", "division", "battalion",
+                    "fire", "police", "army", "navy", "airforce",
+                    # Common junk from Woodward site
+                    "howard", "stinson", "woodward", "daniel", "morgan",
                 }
                 fn_words = set(w.strip(".,'\"-").lower() for w in fn.split())
                 if fn_words & institution_words:
@@ -773,19 +788,17 @@ def fetch_funeral_home(name, url, county):
 
     # ── Strategy 2b: CFS/TA platform link-based layout ──
     # Sites like Bobo, Roberts, Community Mortuary use this pattern:
-    # <a href="/obituary/First-Last">First Last</a> followed by city and obit text
+    # <a href="/obituary/First-Last">First Last</a>
+    # The listing page has NO full text — must always fetch the individual obit page
     for a in soup.find_all("a", href=re.compile(r"/obituary/", re.I)):
         n = a.get_text(strip=True)
         if not is_real_name(n):
             continue
         href = a.get("href", "")
         link = (base_url + href) if href.startswith("/") else href
-        # Grab surrounding text for date/family
-        parent = a.parent
-        card_text = parent.get_text(" ", strip=True) if parent else ""
-        # Walk up if text is too short
-        if len(card_text) < 50 and parent:
-            card_text = parent.parent.get_text(" ", strip=True) if parent.parent else card_text
+        # Always fetch full page for these sites — listing page has no text
+        full_text = fetch_full_text(link) if link else ""
+        card_text = full_text or ""
         add(n, link, make_date(a, card_text), card_text)
 
     if results:
