@@ -51,50 +51,46 @@ LEGACY_PAPERS = {
 }
 
 # Funeral home sites per county — verified working URLs
+# "fetch_full": True = listing page has no obit text, must fetch each individual page
+# "fetch_full": False = listing page already has full text (default, faster)
 FUNERAL_HOMES = {
     "Greenville": [
         {"name": "Watkins Garrett & Woods Mortuary", "url": "https://www.wgwmortuary.com/obituaries"},
         {"name": "Heritage Funeral Home Simpsonville", "url": "https://cannonbyrd.com/obituaries/"},
         {"name": "Cannon-Byrd Funeral Home",          "url": "https://cannonbyrd.com/obituaries/"},
-        {"name": "Thomas McAfee Funeral Homes",      "url": "https://www.thomasmcafee.com/obituaries/obituary-listings"},
-        {"name": "Mackey Mortuary",                  "url": "https://www.mackeymortuary.com/obituaries"},
+        {"name": "Thomas McAfee Funeral Homes",      "url": "https://www.thomasmcafee.com/obituaries/obituary-listings", "fetch_full": True},
+        {"name": "Mackey Mortuary",                  "url": "https://www.mackeymortuary.com/obituaries", "fetch_full": True},
         {"name": "Robinson Funeral Homes",           "url": "https://www.robinsonfuneralhomes.com/obituaries"},
         {"name": "Cremation Society of SC",          "url": "https://www.cremationsocietyofsc.com/obituaries"},
         {"name": "Dignity Memorial Greenville",      "url": "https://www.dignitymemorial.com/obituaries/greenville-sc"},
-        {"name": "Beasley Funeral Home",             "url": "https://www.beasleyfuneralhome.com/obituaries"},
-        {"name": "Graceland Mortuary",               "url": "https://www.gracelandmortuary.com/obituaries"},
-        {"name": "The Palmetto Mortuary",            "url": "https://www.thepalmettomortuary.com/obituaries"},
-        {"name": "Hatcher Funeral Home",             "url": "https://www.hatcherfuneralhome.com/obituaries"},
+        {"name": "Beasley Funeral Home",             "url": "https://www.beasleyfuneralhome.com/obituaries", "fetch_full": True},
+        {"name": "Hatcher Funeral Home",             "url": "https://www.hatcherfuneralhome.com/obituaries", "fetch_full": True},
         {"name": "Legacy.com Greenville County",     "url": "https://www.legacy.com/us/obituaries/local/south-carolina/greenville-county"},
         {"name": "Legacy.com Greenville Area",       "url": "https://www.legacy.com/us/obituaries/local/south-carolina/greenville-area"},
     ],
     "Spartanburg": [
         {"name": "Floyd Mortuary",                   "url": "https://www.floydmortuary.com/listings"},
-        {"name": "Bobo Funeral Chapel",              "url": "https://www.bobofuneralchapel.com/listings"},
-        {"name": "Roberts Funeral Home",             "url": "https://www.robertsfhsc.com/listings"},
+        {"name": "Bobo Funeral Chapel",              "url": "https://www.bobofuneralchapel.com/listings",     "fetch_full": True},
+        {"name": "Roberts Funeral Home",             "url": "https://www.robertsfhsc.com/listings",           "fetch_full": True},
         {"name": "E.L. Collins Funeral Home",        "url": "https://www.elcollinsfh.com/spantanburg-sc-obituaries"},
-        {"name": "Community Mortuary",               "url": "https://www.communitymortuaryinc.com/listings"},
+        {"name": "Community Mortuary",               "url": "https://www.communitymortuaryinc.com/listings",  "fetch_full": True},
         {"name": "Seawright Funeral Home",           "url": "https://seawright-funeralhome.com/obituaries"},
         {"name": "J.W. Woodward Funeral Home",       "url": "https://www.articobits.com/obituaries/jw-woodward-fh/"},
-        {"name": "White Columns Funeral Service",    "url": "https://www.whitecolumnsfuneralservice.com/listings"},
+        {"name": "White Columns Funeral Service",    "url": "https://www.whitecolumnsfuneralservice.com/listings", "fetch_full": True},
         {"name": "Legacy.com Spartanburg County",    "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-county"},
         {"name": "Legacy.com Spartanburg Area",      "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-area"},
         {"name": "Legacy.com Herald-Journal",        "url": "https://www.legacy.com/us/obituaries/spartanburg/today"},
-        {"name": "Legacy.com Spartanburg Today",     "url": "https://www.legacy.com/us/obituaries/today/south-carolina/spartanburg-area"},
     ],
     "Anderson": [
         {"name": "Sosebee Mortuary",                 "url": "https://sosebeemortuary.com/obituaries"},
         {"name": "Anderson Simple Cremations",       "url": "https://andersonsimplecremations.com/obituary/"},
-        {"name": "D.B. Walker Funeral Services",     "url": "https://www.dbwalkerfuneralservices.com/listings"},
-        {"name": "Marcus D. Brown Funeral Home",     "url": "https://www.marcusdbrownfuneralhome.com/listings"},
-        {"name": "Johnson Funeral Home",             "url": "https://www.johnsonfuneralhm.com/listings"},
-        {"name": "Rich-Colonial Funeral Home",       "url": "https://www.rich-colonial-funeral-home.com/listings"},
-        {"name": "McDougald Funeral Home",           "url": "https://www.mcdougaldfuneralhome.com/obituaries/obituary-listings"},
-        {"name": "Tribute Funeral Homes Anderson",   "url": "https://www.tributefuneralhomes.com/obituaries/anderson-sc"},
-        {"name": "Rainey Funeral Home",              "url": "https://www.raineyfuneralhome.com/obituaries"},
+        {"name": "D.B. Walker Funeral Services",     "url": "https://www.dbwalkerfuneralservices.com/listings", "fetch_full": True},
+        {"name": "Marcus D. Brown Funeral Home",     "url": "https://www.marcusdbrownfuneralhome.com/listings", "fetch_full": True},
+        {"name": "Johnson Funeral Home",             "url": "https://www.johnsonfuneralhm.com/listings",       "fetch_full": True},
+        {"name": "Rich-Colonial Funeral Home",       "url": "https://www.rich-colonial-funeral-home.com/listings", "fetch_full": True},
+        {"name": "McDougald Funeral Home",           "url": "https://www.mcdougaldfuneralhome.com/obituaries/obituary-listings", "fetch_full": True},
+        {"name": "Sullivan-King Mortuary",           "url": "https://www.sullivanking.com/obits",              "fetch_full": True},
         {"name": "Legacy.com Anderson County",       "url": "https://www.legacy.com/us/obituaries/local/south-carolina/anderson-county"},
-        {"name": "Sullivan-King Mortuary",           "url": "https://www.sullivanking.com/obits"},
-        {"name": "Legacy.com Anderson Today",        "url": "https://www.legacy.com/us/obituaries/today/south-carolina/anderson"},
         {"name": "Legacy.com Anderson Area",         "url": "https://www.legacy.com/us/obituaries/local/south-carolina/anderson"},
     ],
 }
@@ -523,9 +519,13 @@ def is_real_name(text):
     return True
 
 
-def fetch_funeral_home(name, url, county):
-    """Scrape a funeral home obituary page with strict name validation."""
+def fetch_funeral_home(name, url, county, fetch_full=False):
+    """Scrape a funeral home obituary page with strict name validation.
+    fetch_full=True: always fetch each individual obit page (CFS/TA sites with no listing text)
+    fetch_full=False: only fetch individual pages if listing text is missing survived-by info
+    """
     results = []
+    _fetch_full_flag = fetch_full  # store for use in add()
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15)
         if resp.status_code != 200:
@@ -716,12 +716,19 @@ def fetch_funeral_home(name, url, county):
             return
         seen.add(n)
 
-        # Fetch the full obituary page whenever card text seems incomplete.
-        # Always fetch if no survived-by phrase found, or if text is short.
-        import re as _re
-        _surv_pat = _re.compile(r'surviv|cherish|mourn|leaves? to|left to', _re.I)
         full_text = card_text
-        needs_full = (len(card_text) < 800) or (not _surv_pat.search(card_text))
+        _surv_pat = re.compile(r'surviv|cherish|mourn|leaves?\s+to|left\s+to', re.I)
+
+        # Fetch individual obit page if:
+        # - fetch_full flag set (site has no text on listing page), OR
+        # - card text is short, OR
+        # - no survived-by language found in card text
+        needs_full = (
+            _fetch_full_flag or
+            len(card_text) < 400 or
+            not _surv_pat.search(card_text)
+        )
+
         if link and needs_full:
             fetched = fetch_full_text(link)
             if fetched and len(fetched) > len(card_text):
@@ -867,7 +874,10 @@ def scrape_all():
         # Secondary: funeral homes
         for fh in FUNERAL_HOMES.get(county, []):
             print(f"  Trying {fh['name']} ...")
-            fh_results = fetch_funeral_home(fh["name"], fh["url"], county)
+            fh_results = fetch_funeral_home(
+                fh["name"], fh["url"], county,
+                fetch_full=fh.get("fetch_full", False)
+            )
             added = 0
             for r in fh_results:
                 if r["name"] not in seen_names:
@@ -875,7 +885,7 @@ def scrape_all():
                     county_results.append(r)
                     added += 1
             print(f"  -> {added} new")
-            time.sleep(1)
+            time.sleep(0.5)
 
         print(f"  Total for {county}: {len(county_results)}\n")
         all_results[county] = county_results
