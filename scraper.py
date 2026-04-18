@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-SC Obituary Scraper — GitHub Actions edition
-Reads email credentials from environment variables (GitHub Secrets).
-Writes history to docs/sc_obituaries_history.json
-Writes dashboard to docs/index.html  (served by GitHub Pages)
+SC Obituary Scraper — GitHub Actions edition (v2)
+Uses Legacy.com's search API as the primary source (most reliable),
+with funeral home sites as secondary sources.
 """
 
 import requests
@@ -19,7 +18,7 @@ from datetime import date, datetime, timedelta
 import time
 
 # ─────────────────────────────────────────────
-#  CONFIG — credentials come from GitHub Secrets
+#  CONFIG
 # ─────────────────────────────────────────────
 SMTP_SERVER    = "smtp.gmail.com"
 SMTP_PORT      = 465
@@ -32,33 +31,7 @@ HISTORY_FILE  = os.path.join(DOCS_DIR, "sc_obituaries_history.json")
 DASHBOARD_OUT = os.path.join(DOCS_DIR, "index.html")
 HISTORY_DAYS  = 7
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/122.0.0.0 Safari/537.36"
-    )
-}
-
 COUNTIES = ["Greenville", "Spartanburg", "Anderson"]
-
-SOURCES = {
-    "Greenville": [
-        {"name": "Greenville News (Legacy.com)",     "url": "https://www.legacy.com/us/obituaries/greenvilleonline/", "parser": "legacy"},
-        {"name": "Robinson Funeral Homes",            "url": "https://www.robinsonfuneralhomes.com/obituaries",        "parser": "generic"},
-        {"name": "Geo. W. Harley Funeral Home",       "url": "https://www.georgewharleyfuneralhome.com/obituaries",   "parser": "generic"},
-    ],
-    "Spartanburg": [
-        {"name": "Spartanburg Herald-Journal (Legacy.com)", "url": "https://www.legacy.com/us/obituaries/shj/",      "parser": "legacy"},
-        {"name": "Floyd's Mortuary",                         "url": "https://www.floydsmortuary.com/obituaries",      "parser": "generic"},
-        {"name": "Spartanburg Mortuary",                     "url": "https://www.spartanburgmortuary.com/obituaries", "parser": "generic"},
-    ],
-    "Anderson": [
-        {"name": "Anderson Independent-Mail (Legacy.com)", "url": "https://www.legacy.com/us/obituaries/independentmail/", "parser": "legacy"},
-        {"name": "McDougald Funeral Home",                  "url": "https://www.mcdougaldfuneralhome.com/obituaries",       "parser": "generic"},
-        {"name": "Sullivan-King Mortuary",                  "url": "https://www.sullivankingmortuary.com/obituaries",        "parser": "generic"},
-    ],
-}
 
 COUNTY_COLORS = {
     "Greenville":  "#2563eb",
@@ -66,112 +39,383 @@ COUNTY_COLORS = {
     "Anderson":    "#059669",
 }
 
+# Legacy.com state/region ID for South Carolina
+LEGACY_STATE = "SC"
+
+# Legacy.com newspaper slugs for each county
+LEGACY_PAPERS = {
+    "Greenville":  ["greenvilleonline", "goupstate"],
+    "Spartanburg": ["shj", "goupstate"],
+    "Anderson":    ["independentmail"],
+}
+
+# Funeral home sites per county
+FUNERAL_HOMES = {
+    "Greenville": [
+        {"name": "Robinson Funeral Homes",      "url": "https://www.robinsonfuneralhomes.com/obituaries"},
+        {"name": "Geo. W. Harley Funeral Home", "url": "https://www.georgewharleyfuneralhome.com/obituaries"},
+        {"name": "Mackey Mortuary",             "url": "https://www.mackeymortuary.com/obituaries"},
+        {"name": "Thomas McAfee Funeral Homes", "url": "https://www.thomasmcafee.com/obituaries"},
+    ],
+    "Spartanburg": [
+        {"name": "Floyd's Mortuary",        "url": "https://www.floydsmortuary.com/obituaries"},
+        {"name": "Spartanburg Mortuary",    "url": "https://www.spartanburgmortuary.com/obituaries"},
+        {"name": "Calvary Mortuary",        "url": "https://www.calvarymortuary.com/obituaries"},
+        {"name": "Boiling Springs Funeral", "url": "https://www.boilingspringsfuneralhome.com/obituaries"},
+    ],
+    "Anderson": [
+        {"name": "McDougald Funeral Home",   "url": "https://www.mcdougaldfuneralhome.com/obituaries"},
+        {"name": "Sullivan-King Mortuary",   "url": "https://www.sullivankingmortuary.com/obituaries"},
+        {"name": "Whitfield Mortuary",       "url": "https://www.whitfieldmortuary.com/obituaries"},
+        {"name": "Rainey-Mathis Funeral",    "url": "https://www.raineymathisfuneralhome.com/obituaries"},
+    ],
+}
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.5",
+}
+
+LEGACY_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.legacy.com/",
+    "Origin": "https://www.legacy.com",
+}
+
 
 # ─────────────────────────────────────────────
-#  FETCHING
+#  LEGACY.COM API  (primary, most reliable)
 # ─────────────────────────────────────────────
 
-def fetch_page(url, retries=2):
-    for attempt in range(retries + 1):
+def fetch_legacy_api(county):
+    """
+    Use Legacy.com's internal search API to find obituaries by city/county.
+    This is more reliable than scraping their HTML.
+    """
+    results = []
+    today = date.today().strftime("%Y-%m-%d")
+
+    # Search by city names within each county
+    city_map = {
+        "Greenville":  ["Greenville", "Mauldin", "Simpsonville", "Greer", "Taylors", "Travelers Rest"],
+        "Spartanburg": ["Spartanburg", "Duncan", "Boiling Springs", "Inman", "Gaffney", "Chesnee"],
+        "Anderson":    ["Anderson", "Seneca", "Pendleton", "Williamston", "Belton", "Honea Path"],
+    }
+
+    cities = city_map.get(county, [county])
+    seen_names = set()
+
+    for city in cities:
+        try:
+            # Legacy.com search endpoint
+            url = (
+                f"https://www.legacy.com/api/obituary/search"
+                f"?firstName=&lastName=&state={LEGACY_STATE}"
+                f"&city={requests.utils.quote(city)}"
+                f"&limit=50&offset=0"
+            )
+            resp = requests.get(url, headers=LEGACY_HEADERS, timeout=15)
+
+            if resp.status_code == 200:
+                data = resp.json()
+                obits = data.get("obituaries", data.get("results", data.get("data", [])))
+
+                for obit in obits:
+                    name = (
+                        obit.get("fullName")
+                        or f"{obit.get('firstName','')} {obit.get('lastName','')}".strip()
+                    )
+                    if not name or name in seen_names:
+                        continue
+                    seen_names.add(name)
+
+                    pub_date = (
+                        obit.get("publishDate", "")
+                        or obit.get("deathDate", "")
+                        or obit.get("createdDate", today)
+                    )[:10]
+
+                    obit_city = (
+                        obit.get("city", "")
+                        or obit.get("residenceCity", city)
+                    )
+                    location = f"{obit_city}, SC" if obit_city else f"{county} County, SC"
+
+                    slug = obit.get("slug", obit.get("id", ""))
+                    link = f"https://www.legacy.com/us/obituaries/name/{slug}" if slug else ""
+
+                    results.append({
+                        "name":     name,
+                        "date":     pub_date,
+                        "location": location,
+                        "source":   "Legacy.com",
+                        "county":   county,
+                        "link":     link,
+                    })
+
+            time.sleep(0.5)
+
+        except Exception as e:
+            print(f"  [Legacy API error for {city}]: {e}")
+
+    # Fallback: try newspaper pages directly
+    if not results:
+        results = fetch_legacy_newspaper_pages(county, seen_names)
+
+    print(f"  Legacy.com -> {len(results)} found for {county}")
+    return results
+
+
+def fetch_legacy_newspaper_pages(county, seen_names=None):
+    """Scrape Legacy.com newspaper obituary pages as fallback."""
+    if seen_names is None:
+        seen_names = set()
+    results = []
+    papers = LEGACY_PAPERS.get(county, [])
+
+    for paper in papers:
+        url = f"https://www.legacy.com/us/obituaries/{paper}/recent"
         try:
             resp = requests.get(url, headers=HEADERS, timeout=15)
-            if resp.status_code == 200:
-                return resp.text
-            print(f"  [HTTP {resp.status_code}] {url}")
-        except requests.RequestException as e:
-            print(f"  [Error] {url}: {e}")
-        if attempt < retries:
-            time.sleep(2)
-    return None
+            if resp.status_code != 200:
+                continue
+            soup = BeautifulSoup(resp.text, "html.parser")
 
+            # Try multiple selector patterns Legacy uses
+            cards = (
+                soup.find_all("div", attrs={"data-component": re.compile(r"obit|Obit|listing", re.I)})
+                or soup.find_all("li", class_=re.compile(r"obit|listing|result", re.I))
+                or soup.find_all("article")
+                or soup.find_all("div", class_=re.compile(r"obit|Obit|card|listing|result", re.I))
+            )
 
-# ─────────────────────────────────────────────
-#  PARSERS
-# ─────────────────────────────────────────────
+            for card in cards:
+                # Try to find name
+                name_el = (
+                    card.find(attrs={"data-component": re.compile(r"name|Name", re.I)})
+                    or card.find(class_=re.compile(r"name|Name|title|Title", re.I))
+                    or card.find(["h2", "h3", "h4"])
+                    or card.find("a")
+                )
+                if not name_el:
+                    continue
+                name = name_el.get_text(strip=True)
+                if not name or len(name) < 4 or name in seen_names:
+                    continue
+                if any(w in name.lower() for w in ["obituar", "legacy", "home", "search", "menu"]):
+                    continue
+                seen_names.add(name)
 
-def parse_legacy(html, source_name, county):
-    soup = BeautifulSoup(html, "html.parser")
-    results = []
-    cards = soup.find_all("div", class_=re.compile(r"obituary-listing|ObituaryCard|listing-item", re.I))
-    if not cards:
-        cards = soup.find_all(["article", "li"], class_=re.compile(r"obit|listing|card", re.I))
-    for card in cards:
-        name_tag = card.find(["h2","h3","h4","a"], class_=re.compile(r"name|title", re.I)) or card.find("a")
-        if not name_tag:
-            continue
-        name = name_tag.get_text(strip=True)
-        if not name or len(name) < 3:
-            continue
-        link_tag = card.find("a", href=True)
-        link = ""
-        if link_tag:
-            href = link_tag["href"]
-            link = href if href.startswith("http") else "https://www.legacy.com" + href
-        date_tag = card.find(class_=re.compile(r"date|death|born", re.I))
-        obit_date = date_tag.get_text(strip=True) if date_tag else "See source"
-        location_tag = card.find(class_=re.compile(r"location|city|residence", re.I))
-        location = location_tag.get_text(strip=True) if location_tag else f"{county} County, SC"
-        results.append({"name": name, "date": obit_date, "location": location,
-                         "source": source_name, "county": county, "link": link})
+                link_el = card.find("a", href=True)
+                href = link_el["href"] if link_el else ""
+                link = href if href.startswith("http") else ("https://www.legacy.com" + href if href.startswith("/") else "")
+
+                date_el = card.find(class_=re.compile(r"date|Date|death|born", re.I))
+                obit_date = date_el.get_text(strip=True) if date_el else "See source"
+
+                results.append({
+                    "name":     name,
+                    "date":     obit_date,
+                    "location": f"{county} County, SC",
+                    "source":   f"Legacy.com ({paper})",
+                    "county":   county,
+                    "link":     link,
+                })
+
+        except Exception as e:
+            print(f"  [Legacy page error {paper}]: {e}")
+        time.sleep(1)
+
     return results
 
 
-def parse_generic(html, source_name, county):
-    soup = BeautifulSoup(html, "html.parser")
+# ─────────────────────────────────────────────
+#  FUNERAL HOME SCRAPER  (secondary sources)
+# ─────────────────────────────────────────────
+
+def fetch_funeral_home(name, url, county):
+    """
+    Aggressively scrape a funeral home obituary page.
+    Tries many different HTML patterns used by common funeral home website builders.
+    """
     results = []
-    containers = (
-        soup.find_all(class_=re.compile(r"obit|deceased|listing|memorial|person", re.I))
-        or soup.find_all("article")
-        or soup.find_all("li", class_=True)
-    )
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=15)
+        if resp.status_code != 200:
+            print(f"  [{resp.status_code}] {name}")
+            return []
+    except Exception as e:
+        print(f"  [Error] {name}: {e}")
+        return []
+
+    soup = BeautifulSoup(resp.text, "html.parser")
     seen = set()
-    for container in containers:
-        name_tag = (
-            container.find(["h1","h2","h3","h4","strong","a"], class_=re.compile(r"name|title|deceased", re.I))
-            or container.find(["h2","h3","h4"])
-        )
-        if not name_tag:
-            continue
-        name = name_tag.get_text(strip=True)
-        if not name or len(name) < 3 or name in seen:
-            continue
-        if any(w in name.lower() for w in ["home","about","contact","service","menu","obituar"]):
-            continue
-        seen.add(name)
-        link_tag = container.find("a", href=True)
-        link = link_tag["href"] if link_tag and link_tag["href"].startswith("http") else ""
-        date_tag = container.find(class_=re.compile(r"date|death|born|age", re.I))
-        obit_date = date_tag.get_text(strip=True) if date_tag else "See source"
-        results.append({"name": name, "date": obit_date, "location": f"{county} County, SC",
-                         "source": source_name, "county": county, "link": link})
+
+    # Strategy 1: structured data (JSON-LD) — most reliable when present
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(script.string or "")
+            items = data if isinstance(data, list) else [data]
+            for item in items:
+                if item.get("@type") in ("Person", "Obituary", "Event"):
+                    n = item.get("name", "")
+                    if n and n not in seen and len(n) > 3:
+                        seen.add(n)
+                        results.append({
+                            "name":     n,
+                            "date":     item.get("deathDate", item.get("startDate", "See source")),
+                            "location": f"{county} County, SC",
+                            "source":   name,
+                            "county":   county,
+                            "link":     item.get("url", url),
+                        })
+        except Exception:
+            pass
+
+    if results:
+        return results
+
+    # Strategy 2: common CSS class patterns used by funeral home site builders
+    # (Tribute Archive, FrontRunner, SRS Computing, Domani, etc.)
+    selectors = [
+        {"class": re.compile(r"obit.?name|deceased.?name|obituary.?name", re.I)},
+        {"class": re.compile(r"fn|fullname|full.name", re.I)},
+        {"itemprop": "name"},
+        {"class": re.compile(r"obit|obituary|deceased|memorial|tribute", re.I)},
+    ]
+
+    for sel in selectors:
+        tags = soup.find_all(True, attrs=sel)
+        for tag in tags:
+            n = tag.get_text(strip=True)
+            if not n or len(n) < 4 or n in seen:
+                continue
+            if any(w in n.lower() for w in ["home", "about", "contact", "service", "menu",
+                                             "obituar", "search", "phone", "address"]):
+                continue
+            # Must look like a name (2+ words, mostly letters)
+            if len(n.split()) < 2:
+                continue
+            if sum(c.isalpha() or c in " .,'-" for c in n) / max(len(n), 1) < 0.8:
+                continue
+            seen.add(n)
+
+            # Try to find link and date near this element
+            parent = tag.parent
+            link_el = tag.find("a", href=True) or (parent.find("a", href=True) if parent else None)
+            href = link_el["href"] if link_el else ""
+            if href and not href.startswith("http"):
+                base = "/".join(url.split("/")[:3])
+                href = base + href if href.startswith("/") else ""
+            date_el = (tag.find_next(class_=re.compile(r"date|death|born|age", re.I))
+                       or (parent.find(class_=re.compile(r"date|death|born|age", re.I)) if parent else None))
+            obit_date = date_el.get_text(strip=True) if date_el else "See source"
+
+            results.append({
+                "name":     n,
+                "date":     obit_date,
+                "location": f"{county} County, SC",
+                "source":   name,
+                "county":   county,
+                "link":     href or url,
+            })
+
+        if results:
+            break
+
+    # Strategy 3: look for heading tags near "obituar" context
+    if not results:
+        for heading in soup.find_all(["h1", "h2", "h3", "h4"]):
+            n = heading.get_text(strip=True)
+            if not n or len(n) < 4 or n in seen:
+                continue
+            # Skip non-name headings
+            if any(w in n.lower() for w in ["obituar", "home", "about", "service",
+                                             "contact", "welcome", "funeral", "recent"]):
+                continue
+            if len(n.split()) < 2 or len(n) > 60:
+                continue
+            if sum(c.isalpha() or c in " .,'-" for c in n) / max(len(n), 1) < 0.8:
+                continue
+
+            # Check nearby context for obituary-related words
+            parent = heading.parent
+            context = parent.get_text(" ", strip=True).lower() if parent else ""
+            if not any(w in context for w in ["born", "passed", "survived", "memorial",
+                                               "funeral", "service", "died", "death"]):
+                continue
+            seen.add(n)
+            link_el = heading.find("a", href=True) or heading.find_next("a", href=True)
+            href = link_el["href"] if link_el else ""
+            if href and not href.startswith("http"):
+                base = "/".join(url.split("/")[:3])
+                href = base + href if href.startswith("/") else ""
+            results.append({
+                "name":     n,
+                "date":     "See source",
+                "location": f"{county} County, SC",
+                "source":   name,
+                "county":   county,
+                "link":     href or url,
+            })
+
     return results
 
 
 # ─────────────────────────────────────────────
-#  SCRAPING
+#  MAIN SCRAPE
 # ─────────────────────────────────────────────
 
 def scrape_all():
     today = date.today().strftime("%Y-%m-%d")
     all_results = {county: [] for county in COUNTIES}
     total = 0
-    print(f"\n{'='*60}\n  SC Obituary Scraper — {today}\n{'='*60}\n")
-    for county, sources in SOURCES.items():
+
+    print(f"\n{'='*60}\n  SC Obituary Scraper v2 — {today}\n{'='*60}\n")
+
+    for county in COUNTIES:
         print(f"[{county} County]")
-        for source in sources:
-            print(f"  Fetching: {source['name']} ...")
-            html = fetch_page(source["url"])
-            if not html:
-                print("  -> Skipped.")
-                continue
-            parse_fn = parse_legacy if source["parser"] == "legacy" else parse_generic
-            entries = parse_fn(html, source["name"], county)
-            print(f"  -> {len(entries)} found")
-            all_results[county].extend(entries)
-            total += len(entries)
+        county_results = []
+        seen_names = set()
+
+        # Primary: Legacy.com API
+        print("  Trying Legacy.com API ...")
+        legacy_results = fetch_legacy_api(county)
+        for r in legacy_results:
+            if r["name"] not in seen_names:
+                seen_names.add(r["name"])
+                county_results.append(r)
+        time.sleep(1)
+
+        # Secondary: funeral homes
+        for fh in FUNERAL_HOMES.get(county, []):
+            print(f"  Trying {fh['name']} ...")
+            fh_results = fetch_funeral_home(fh["name"], fh["url"], county)
+            added = 0
+            for r in fh_results:
+                if r["name"] not in seen_names:
+                    seen_names.add(r["name"])
+                    county_results.append(r)
+                    added += 1
+            print(f"  -> {added} new")
             time.sleep(1)
-        print()
-    print(f"Total: {total}\n")
+
+        print(f"  Total for {county}: {len(county_results)}\n")
+        all_results[county] = county_results
+        total += len(county_results)
+
+    print(f"Grand total: {total} obituaries\n")
     return all_results, today, total
 
 
@@ -197,16 +441,15 @@ def save_history(history, today, results):
     history = dict(sorted(history.items(), reverse=True))
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, indent=2, ensure_ascii=False)
-    print(f"History saved -> {HISTORY_FILE}  ({len(history)} days)")
+    print(f"History saved ({len(history)} days)")
     return history
 
 
 # ─────────────────────────────────────────────
-#  DASHBOARD HTML (written to docs/index.html)
+#  DASHBOARD
 # ─────────────────────────────────────────────
 
 def save_dashboard(history):
-    """Write a self-contained dashboard embedding the history JSON inline."""
     history_json = json.dumps(history, ensure_ascii=False)
     today_key = sorted(history.keys())[-1] if history else ""
     updated = today_key or datetime.now().strftime("%Y-%m-%d")
@@ -215,181 +458,141 @@ def save_dashboard(history):
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>SC Obituary Dashboard</title>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{font-family:Georgia,serif;background:#f5f5f0;color:#222;padding:16px}}
-.header{{background:#1a1a2e;color:white;padding:20px 24px;border-radius:8px;margin-bottom:18px}}
-.header h1{{font-size:22px;margin-bottom:4px}}
-.header p{{color:#aaa;font-size:13px;font-family:Arial,sans-serif}}
+.hdr{{background:#1a1a2e;color:white;padding:20px 24px;border-radius:8px;margin-bottom:18px}}
+.hdr h1{{font-size:22px;margin-bottom:4px}}
+.hdr p{{color:#aaa;font-size:13px;font-family:Arial,sans-serif}}
 .nav{{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}}
-.tab{{padding:8px 18px;border-radius:20px;border:none;cursor:pointer;
-      font-family:Arial,sans-serif;font-size:13px;font-weight:600;transition:opacity .15s}}
-.tab:hover{{opacity:.85}}
+.tab{{padding:8px 18px;border-radius:20px;border:none;cursor:pointer;font-family:Arial,sans-serif;font-size:13px;font-weight:600}}
 .panel{{display:none}}.panel.active{{display:block}}
 .card{{background:white;border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}}
-.card-title{{font-size:18px;font-weight:bold;border-left:5px solid;padding-left:12px;margin-bottom:14px}}
-.badge{{font-family:Arial,sans-serif;font-size:11px;background:#f3f4f6;color:#555;
-        padding:2px 9px;border-radius:12px;margin-left:8px;font-weight:normal}}
+.ctitle{{font-size:18px;font-weight:bold;border-left:5px solid;padding-left:12px;margin-bottom:14px}}
+.badge{{font-family:Arial,sans-serif;font-size:11px;background:#f3f4f6;color:#555;padding:2px 9px;border-radius:12px;margin-left:8px;font-weight:normal}}
 table{{width:100%;border-collapse:collapse;font-size:14px}}
 thead tr{{background:#f0f0f0}}
-th{{padding:8px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;
-    text-transform:uppercase;letter-spacing:.4px;color:#555}}
+th{{padding:8px 10px;text-align:left;font-family:Arial,sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#555}}
 td{{padding:9px 10px;border-bottom:1px solid #eee;vertical-align:top}}
 tr:last-child td{{border-bottom:none}}
 tr:hover td{{background:#fafafa}}
-a.vl{{text-decoration:none;font-size:12px;font-family:Arial,sans-serif;
-      padding:3px 10px;border-radius:10px;color:white}}
-.notice{{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;
-         padding:14px 18px;margin-bottom:16px;font-family:Arial,sans-serif;
-         font-size:13px;color:#78350f;line-height:1.6}}
-.step{{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;
-       padding:14px 18px;margin-bottom:12px;font-family:Arial,sans-serif;
-       font-size:13px;color:#14532d;line-height:1.8}}
-.step strong{{display:block;margin-bottom:4px;font-size:14px}}
-code{{background:#e5e7eb;padding:2px 6px;border-radius:4px;font-family:monospace;font-size:12px}}
-.day-tab{{display:inline-block;padding:5px 14px;border-radius:16px;cursor:pointer;
-          font-family:Arial,sans-serif;font-size:12px;font-weight:600;margin:3px;
-          background:#f3f4f6;color:#374151;border:1px solid #e5e7eb}}
-.day-tab:hover{{background:#e5e7eb}}
+a.vl{{text-decoration:none;font-size:12px;font-family:Arial,sans-serif;padding:3px 10px;border-radius:10px;color:white}}
+.empty{{color:#999;font-style:italic;padding:8px 0;font-family:Arial,sans-serif;font-size:13px}}
+.day-tab{{display:inline-block;padding:5px 14px;border-radius:16px;cursor:pointer;font-family:Arial,sans-serif;font-size:12px;font-weight:600;margin:3px;background:#f3f4f6;color:#374151;border:1px solid #e5e7eb}}
 .day-tab.sel{{background:#b45309;color:white;border-color:#b45309}}
 .day-panel{{display:none}}.day-panel.active{{display:block}}
-.county-seg{{margin-bottom:20px}}
-.empty-msg{{color:#999;font-style:italic;padding:8px 0;font-family:Arial,sans-serif;font-size:13px}}
-.src-row{{display:flex;align-items:center;justify-content:space-between;
-          padding:9px 12px;border-radius:6px;margin-bottom:6px;
-          background:#f9f9f9;border:1px solid #eee}}
-.src-row:hover{{background:#f0f0f0}}
-.src-name{{font-size:13px;color:#222;font-weight:500}}
-.src-type{{font-size:11px;color:#888;margin-top:1px;font-family:Arial,sans-serif}}
-.src-btn{{padding:5px 14px;border-radius:12px;border:none;cursor:pointer;
-          font-size:12px;font-weight:600;color:white;text-decoration:none;display:inline-block}}
+.src-row{{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:6px;margin-bottom:6px;background:#f9f9f9;border:1px solid #eee}}
+.src-btn{{padding:5px 14px;border-radius:12px;border:none;font-size:12px;font-weight:600;color:white;text-decoration:none;display:inline-block}}
 </style>
 </head>
 <body>
-<div class="header">
+<div class="hdr">
   <h1>SC Obituary Dashboard</h1>
   <p>Greenville &nbsp;·&nbsp; Spartanburg &nbsp;·&nbsp; Anderson &nbsp;|&nbsp; Updated: {updated}</p>
 </div>
-
 <div class="nav">
-  <button class="tab" style="background:#374151;color:white" onclick="showPanel('all')">Today — All</button>
-  <button class="tab" style="background:#2563eb;color:white" onclick="showPanel('gvl')">Greenville</button>
-  <button class="tab" style="background:#7c3aed;color:white" onclick="showPanel('spt')">Spartanburg</button>
-  <button class="tab" style="background:#059669;color:white" onclick="showPanel('and')">Anderson</button>
-  <button class="tab" style="background:#b45309;color:white" onclick="showPanel('hist')">7-Day History</button>
-  <button class="tab" style="background:#e5e7eb;color:#374151;margin-left:auto" onclick="showPanel('links')">Sources</button>
+  <button class="tab" style="background:#374151;color:white" onclick="show('all')">Today — All</button>
+  <button class="tab" style="background:#2563eb;color:white" onclick="show('gvl')">Greenville</button>
+  <button class="tab" style="background:#7c3aed;color:white" onclick="show('spt')">Spartanburg</button>
+  <button class="tab" style="background:#059669;color:white" onclick="show('and')">Anderson</button>
+  <button class="tab" style="background:#b45309;color:white" onclick="show('hist')">7-Day History</button>
+  <button class="tab" style="background:#e5e7eb;color:#374151;margin-left:auto" onclick="show('src')">Sources</button>
 </div>
-
-<div id="panel-all"   class="panel active"></div>
-<div id="panel-gvl"   class="panel"></div>
-<div id="panel-spt"   class="panel"></div>
-<div id="panel-and"   class="panel"></div>
-<div id="panel-hist"  class="panel">
+<div id="p-all"  class="panel active"></div>
+<div id="p-gvl"  class="panel"></div>
+<div id="p-spt"  class="panel"></div>
+<div id="p-and"  class="panel"></div>
+<div id="p-hist" class="panel">
   <div class="card">
-    <div class="card-title" style="border-color:#b45309;color:#b45309;">7-Day History</div>
-    <div id="hist-tabs" style="margin-bottom:16px;"></div>
-    <div id="hist-body"></div>
+    <div class="ctitle" style="border-color:#b45309;color:#b45309;">7-Day History</div>
+    <div id="dtabs" style="margin-bottom:14px;"></div>
+    <div id="dbody"></div>
   </div>
 </div>
-<div id="panel-links" class="panel">
+<div id="p-src" class="panel">
   <div class="card">
-    <div class="card-title" style="border-color:#2563eb;color:#2563eb;">Greenville Sources</div>
-    <div class="src-row"><div><div class="src-name">Greenville News — Legacy.com</div><div class="src-type">Newspaper</div></div><a class="src-btn" style="background:#2563eb" href="https://www.legacy.com/us/obituaries/greenvilleonline/" target="_blank">Open</a></div>
-    <div class="src-row"><div><div class="src-name">Robinson Funeral Homes</div><div class="src-type">Funeral home</div></div><a class="src-btn" style="background:#2563eb" href="https://www.robinsonfuneralhomes.com/obituaries" target="_blank">Open</a></div>
-    <div class="src-row"><div><div class="src-name">Geo. W. Harley Funeral Home</div><div class="src-type">Funeral home</div></div><a class="src-btn" style="background:#2563eb" href="https://www.georgewharleyfuneralhome.com/obituaries" target="_blank">Open</a></div>
-    <div class="src-row"><div><div class="src-name">Legacy.com county search</div><div class="src-type">Aggregator</div></div><a class="src-btn" style="background:#2563eb" href="https://www.legacy.com/obituaries/search?countryId=1&regionId=42&countyName=Greenville" target="_blank">Open</a></div>
+    <div class="ctitle" style="border-color:#2563eb;color:#2563eb;">Greenville Sources</div>
+    <div class="src-row"><div><strong>Legacy.com</strong><br><small style="color:#888">Newspaper aggregator</small></div><a class="src-btn" style="background:#2563eb" href="https://www.legacy.com/obituaries/search?countryId=1&regionId=42&countyName=Greenville" target="_blank">Open</a></div>
+    <div class="src-row"><div><strong>Robinson Funeral Homes</strong></div><a class="src-btn" style="background:#2563eb" href="https://www.robinsonfuneralhomes.com/obituaries" target="_blank">Open</a></div>
+    <div class="src-row"><div><strong>Thomas McAfee Funeral Homes</strong></div><a class="src-btn" style="background:#2563eb" href="https://www.thomasmcafee.com/obituaries" target="_blank">Open</a></div>
+    <div class="src-row"><div><strong>Geo. W. Harley Funeral Home</strong></div><a class="src-btn" style="background:#2563eb" href="https://www.georgewharleyfuneralhome.com/obituaries" target="_blank">Open</a></div>
   </div>
   <div class="card">
-    <div class="card-title" style="border-color:#7c3aed;color:#7c3aed;">Spartanburg Sources</div>
-    <div class="src-row"><div><div class="src-name">Spartanburg Herald-Journal — Legacy.com</div><div class="src-type">Newspaper</div></div><a class="src-btn" style="background:#7c3aed" href="https://www.legacy.com/us/obituaries/shj/" target="_blank">Open</a></div>
-    <div class="src-row"><div><div class="src-name">Floyd's Mortuary</div><div class="src-type">Funeral home</div></div><a class="src-btn" style="background:#7c3aed" href="https://www.floydsmortuary.com/obituaries" target="_blank">Open</a></div>
-    <div class="src-row"><div><div class="src-name">Spartanburg Mortuary</div><div class="src-type">Funeral home</div></div><a class="src-btn" style="background:#7c3aed" href="https://www.spartanburgmortuary.com/obituaries" target="_blank">Open</a></div>
-    <div class="src-row"><div><div class="src-name">Legacy.com county search</div><div class="src-type">Aggregator</div></div><a class="src-btn" style="background:#7c3aed" href="https://www.legacy.com/obituaries/search?countryId=1&regionId=42&countyName=Spartanburg" target="_blank">Open</a></div>
+    <div class="ctitle" style="border-color:#7c3aed;color:#7c3aed;">Spartanburg Sources</div>
+    <div class="src-row"><div><strong>Legacy.com</strong><br><small style="color:#888">Newspaper aggregator</small></div><a class="src-btn" style="background:#7c3aed" href="https://www.legacy.com/obituaries/search?countryId=1&regionId=42&countyName=Spartanburg" target="_blank">Open</a></div>
+    <div class="src-row"><div><strong>Floyd's Mortuary</strong></div><a class="src-btn" style="background:#7c3aed" href="https://www.floydsmortuary.com/obituaries" target="_blank">Open</a></div>
+    <div class="src-row"><div><strong>Spartanburg Mortuary</strong></div><a class="src-btn" style="background:#7c3aed" href="https://www.spartanburgmortuary.com/obituaries" target="_blank">Open</a></div>
   </div>
   <div class="card">
-    <div class="card-title" style="border-color:#059669;color:#059669;">Anderson Sources</div>
-    <div class="src-row"><div><div class="src-name">Anderson Independent-Mail — Legacy.com</div><div class="src-type">Newspaper</div></div><a class="src-btn" style="background:#059669" href="https://www.legacy.com/us/obituaries/independentmail/" target="_blank">Open</a></div>
-    <div class="src-row"><div><div class="src-name">McDougald Funeral Home</div><div class="src-type">Funeral home</div></div><a class="src-btn" style="background:#059669" href="https://www.mcdougaldfuneralhome.com/obituaries" target="_blank">Open</a></div>
-    <div class="src-row"><div><div class="src-name">Sullivan-King Mortuary</div><div class="src-type">Funeral home</div></div><a class="src-btn" style="background:#059669" href="https://www.sullivankingmortuary.com/obituaries" target="_blank">Open</a></div>
-    <div class="src-row"><div><div class="src-name">Legacy.com county search</div><div class="src-type">Aggregator</div></div><a class="src-btn" style="background:#059669" href="https://www.legacy.com/obituaries/search?countryId=1&regionId=42&countyName=Anderson" target="_blank">Open</a></div>
+    <div class="ctitle" style="border-color:#059669;color:#059669;">Anderson Sources</div>
+    <div class="src-row"><div><strong>Legacy.com</strong><br><small style="color:#888">Newspaper aggregator</small></div><a class="src-btn" style="background:#059669" href="https://www.legacy.com/obituaries/search?countryId=1&regionId=42&countyName=Anderson" target="_blank">Open</a></div>
+    <div class="src-row"><div><strong>McDougald Funeral Home</strong></div><a class="src-btn" style="background:#059669" href="https://www.mcdougaldfuneralhome.com/obituaries" target="_blank">Open</a></div>
+    <div class="src-row"><div><strong>Sullivan-King Mortuary</strong></div><a class="src-btn" style="background:#059669" href="https://www.sullivankingmortuary.com/obituaries" target="_blank">Open</a></div>
   </div>
 </div>
 
 <script>
-const COUNTIES = ["Greenville","Spartanburg","Anderson"];
-const COLORS   = {{Greenville:"#2563eb",Spartanburg:"#7c3aed",Anderson:"#059669"}};
-const HISTORY  = {history_json};
+const C=['Greenville','Spartanburg','Anderson'];
+const CLR={{Greenville:'#2563eb',Spartanburg:'#7c3aed',Anderson:'#059669'}};
+const H={history_json};
 
-function showPanel(n) {{
+function show(n){{
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
-  document.getElementById('panel-'+n).classList.add('active');
+  document.getElementById('p-'+n).classList.add('active');
 }}
 
-function tbl(entries, county) {{
-  if (!entries||!entries.length) return '<p class="empty-msg">No obituaries found.</p>';
-  const c=COLORS[county]||'#333';
-  const rows=entries.map(e=>{{
-    const lk=e.link?`<a class="vl" style="background:${{c}}" href="${{e.link}}" target="_blank">View</a>`:'—';
-    return `<tr><td><strong>${{e.name}}</strong></td><td style="color:#666;font-size:13px">${{e.date}}</td><td style="color:#666;font-size:13px">${{e.location}}</td><td style="color:#666;font-size:13px">${{e.source}}</td><td>${{lk}}</td></tr>`;
-  }}).join('');
-  return `<table><thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Source</th><th>Link</th></tr></thead><tbody>${{rows}}</tbody></table>`;
+function tbl(entries,county){{
+  if(!entries||!entries.length) return '<p class="empty">No obituaries found — the websites may have changed or had no new postings today.</p>';
+  const c=CLR[county]||'#333';
+  return '<table><thead><tr><th>Name</th><th>Date</th><th>Location</th><th>Source</th><th>Link</th></tr></thead><tbody>'
+    +entries.map(e=>`<tr><td><strong>${{e.name}}</strong></td><td style="color:#666;font-size:13px">${{e.date}}</td><td style="color:#666;font-size:13px">${{e.location}}</td><td style="color:#666;font-size:13px">${{e.source}}</td><td>${{e.link?`<a class="vl" style="background:${{c}}" href="${{e.link}}" target="_blank">View</a>`:'—'}}</td></tr>`).join('')
+    +'</tbody></table>';
 }}
 
-function fmt(d) {{
-  const [y,m,day]=d.split('-');
+function fmt(d){{
+  const[y,m,day]=d.split('-');
   return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]+' '+day;
 }}
 
-function renderToday() {{
-  const days=Object.keys(HISTORY).sort().reverse();
-  const today=days[0];
-  if (!today) return;
-  const data=HISTORY[today];
-  // all panel
-  document.getElementById('panel-all').innerHTML=COUNTIES.map(county=>{{
-    const entries=data[county]||[];
-    const c=COLORS[county];
-    return `<div class="card"><div class="card-title" style="border-color:${{c}};color:${{c}}">${{county}} County <span class="badge">${{entries.length}} found</span></div>${{tbl(entries,county)}}</div>`;
+function renderToday(){{
+  const days=Object.keys(H).sort().reverse();
+  if(!days.length) return;
+  const data=H[days[0]];
+  document.getElementById('p-all').innerHTML=C.map(co=>{{
+    const e=data[co]||[];
+    const c=CLR[co];
+    return `<div class="card"><div class="ctitle" style="border-color:${{c}};color:${{c}}">${{co}} County <span class="badge">${{e.length}} found</span></div>${{tbl(e,co)}}</div>`;
   }}).join('');
-  // individual county panels
-  [['gvl','Greenville'],['spt','Spartanburg'],['and','Anderson']].forEach(([id,county])=>{{
-    const entries=data[county]||[];
-    const c=COLORS[county];
-    document.getElementById('panel-'+id).innerHTML=`<div class="card"><div class="card-title" style="border-color:${{c}};color:${{c}}">${{county}} County <span class="badge">${{entries.length}} found</span></div>${{tbl(entries,county)}}</div>`;
+  [['gvl','Greenville'],['spt','Spartanburg'],['and','Anderson']].forEach(([id,co])=>{{
+    const e=data[co]||[];const c=CLR[co];
+    document.getElementById('p-'+id).innerHTML=`<div class="card"><div class="ctitle" style="border-color:${{c}};color:${{c}}">${{co}} County <span class="badge">${{e.length}} found</span></div>${{tbl(e,co)}}</div>`;
   }});
 }}
 
-function renderHistory() {{
-  const days=Object.keys(HISTORY).sort().reverse();
-  if (!days.length) return;
-  document.getElementById('hist-tabs').innerHTML=days.map((d,i)=>
-    `<span class="day-tab ${{i===0?'sel':''}}" onclick="selDay('${{d}}',this)">${{fmt(d)}}</span>`
-  ).join('');
-  document.getElementById('hist-body').innerHTML=days.map((d,i)=>{{
-    const data=HISTORY[d];
-    const secs=COUNTIES.map(county=>{{
-      const entries=data[county]||[];
-      const c=COLORS[county];
-      return `<div class="county-seg"><h3 style="color:${{c}};border-left:4px solid ${{c}};padding-left:10px;margin-bottom:10px;font-size:16px">${{county}} County <span class="badge">${{entries.length}}</span></h3>${{tbl(entries,county)}}</div>`;
-    }}).join('');
-    return `<div id="day-${{d}}" class="day-panel ${{i===0?'active':''}}">${{secs}}</div>`;
+function renderHistory(){{
+  const days=Object.keys(H).sort().reverse();
+  if(!days.length) return;
+  document.getElementById('dtabs').innerHTML=days.map((d,i)=>`<span class="day-tab ${{i===0?'sel':''}}" onclick="selDay('${{d}}',this)">${{fmt(d)}}</span>`).join('');
+  document.getElementById('dbody').innerHTML=days.map((d,i)=>{{
+    const data=H[d];
+    return `<div id="day-${{d}}" class="day-panel ${{i===0?'active':''}}">`+C.map(co=>{{
+      const e=data[co]||[];const c=CLR[co];
+      return `<div style="margin-bottom:20px"><h3 style="color:${{c}};border-left:4px solid ${{c}};padding-left:10px;margin-bottom:10px;font-size:16px">${{co}} County <span class="badge">${{e.length}}</span></h3>${{tbl(e,co)}}</div>`;
+    }}).join('')+'</div>';
   }}).join('');
 }}
 
-function selDay(d,el) {{
+function selDay(d,el){{
   document.querySelectorAll('.day-tab').forEach(t=>t.classList.remove('sel'));
   document.querySelectorAll('.day-panel').forEach(p=>p.classList.remove('active'));
-  el.classList.add('sel');
-  document.getElementById('day-'+d).classList.add('active');
+  el.classList.add('sel');document.getElementById('day-'+d).classList.add('active');
 }}
 
-renderToday();
-renderHistory();
+renderToday();renderHistory();
 </script>
-</body>
-</html>"""
+</body></html>"""
 
     os.makedirs(DOCS_DIR, exist_ok=True)
     with open(DASHBOARD_OUT, "w", encoding="utf-8") as f:
@@ -401,75 +604,66 @@ renderHistory();
 #  EMAIL
 # ─────────────────────────────────────────────
 
-def build_email_html(results, today):
+def send_email(results, today):
+    if not EMAIL_FROM or not EMAIL_PASSWORD or not EMAIL_TO:
+        print("Email not configured — skipping.")
+        return
+
     total = sum(len(v) for v in results.values())
-    def make_tbl(entries, county):
+
+    def rows(entries, county):
         color = COUNTY_COLORS.get(county, "#333")
         if not entries:
-            return '<p style="color:#999;font-style:italic;">No results found.</p>'
-        rows = "".join(
-            f'<tr><td style="padding:7px 10px;border-bottom:1px solid #eee">{e["name"]}</td>'
+            return '<tr><td colspan="4" style="color:#999;font-style:italic;padding:8px">No results found today.</td></tr>'
+        return "".join(
+            f'<tr><td style="padding:7px 10px;border-bottom:1px solid #eee"><strong>{e["name"]}</strong></td>'
             f'<td style="padding:7px 10px;border-bottom:1px solid #eee;color:#666;font-size:13px">{e["date"]}</td>'
             f'<td style="padding:7px 10px;border-bottom:1px solid #eee;color:#666;font-size:13px">{e["source"]}</td>'
             f'<td style="padding:7px 10px;border-bottom:1px solid #eee">{"<a href=" + repr(e["link"]) + " style=color:" + repr(color) + ">View</a>" if e.get("link") else "—"}</td></tr>'
             for e in entries
         )
-        return (f'<table style="width:100%;border-collapse:collapse;font-size:14px">'
-                f'<thead><tr style="background:#f5f5f5">'
-                f'<th style="padding:7px 10px;text-align:left;font-size:11px;color:#555;text-transform:uppercase">Name</th>'
-                f'<th style="padding:7px 10px;text-align:left;font-size:11px;color:#555;text-transform:uppercase">Date</th>'
-                f'<th style="padding:7px 10px;text-align:left;font-size:11px;color:#555;text-transform:uppercase">Source</th>'
-                f'<th style="padding:7px 10px;text-align:left;font-size:11px;color:#555;text-transform:uppercase">Link</th>'
-                f'</tr></thead><tbody>{rows}</tbody></table>')
+
     sections = "".join(
         f'<div style="background:white;border-radius:8px;padding:18px;margin-bottom:14px;border:1px solid #e5e7eb">'
-        f'<h2 style="color:{COUNTY_COLORS.get(c,"#333")};border-left:4px solid {COUNTY_COLORS.get(c,"#333")};'
-        f'padding-left:10px;margin-bottom:12px;font-size:17px">'
+        f'<h2 style="color:{COUNTY_COLORS.get(c,"#333")};border-left:4px solid {COUNTY_COLORS.get(c,"#333")};padding-left:10px;margin-bottom:12px;font-size:17px">'
         f'{c} County <span style="font-size:13px;font-weight:normal;color:#666">({len(results.get(c,[]))} found)</span></h2>'
-        f'{make_tbl(results.get(c,[]),c)}</div>'
+        f'<table style="width:100%;border-collapse:collapse;font-size:14px">'
+        f'<thead><tr style="background:#f5f5f5"><th style="padding:7px 10px;text-align:left;font-size:11px;color:#555;text-transform:uppercase">Name</th>'
+        f'<th style="padding:7px 10px;text-align:left;font-size:11px;color:#555;text-transform:uppercase">Date</th>'
+        f'<th style="padding:7px 10px;text-align:left;font-size:11px;color:#555;text-transform:uppercase">Source</th>'
+        f'<th style="padding:7px 10px;text-align:left;font-size:11px;color:#555;text-transform:uppercase">Link</th></tr></thead>'
+        f'<tbody>{rows(results.get(c,[]),c)}</tbody></table></div>'
         for c in COUNTIES
     )
-    return (f'<div style="font-family:Georgia,serif;background:#f5f5f0;padding:20px;max-width:800px;margin:0 auto">'
-            f'<div style="background:#1a1a2e;color:white;padding:18px 24px;border-radius:8px;margin-bottom:14px">'
-            f'<h1 style="font-size:21px;margin-bottom:4px">South Carolina Obituaries</h1>'
-            f'<p style="color:#aaa;font-family:Arial,sans-serif;font-size:13px">Greenville · Spartanburg · Anderson | {today} | {total} total</p></div>'
-            f'{sections}'
-            f'<p style="text-align:center;color:#999;font-size:11px;font-family:Arial,sans-serif;margin-top:14px">'
-            f'Sent by SC Obituary Scraper via GitHub Actions</p></div>')
 
+    html_body = (
+        f'<div style="font-family:Georgia,serif;background:#f5f5f0;padding:20px;max-width:800px;margin:0 auto">'
+        f'<div style="background:#1a1a2e;color:white;padding:18px 24px;border-radius:8px;margin-bottom:14px">'
+        f'<h1 style="font-size:21px;margin-bottom:4px">South Carolina Obituaries</h1>'
+        f'<p style="color:#aaa;font-family:Arial,sans-serif;font-size:13px">Greenville · Spartanburg · Anderson | {today} | {total} total</p></div>'
+        f'{sections}'
+        f'<p style="text-align:center;color:#999;font-size:11px;font-family:Arial,sans-serif;margin-top:14px">Sent by SC Obituary Scraper via GitHub Actions</p></div>'
+    )
 
-def build_email_text(results, today):
-    lines = [f"SC Obituaries — {today}", "="*50, ""]
-    for county in COUNTIES:
-        entries = results.get(county, [])
-        lines += [f"{county} County ({len(entries)} found)", "-"*30]
-        lines += ([f"  {e['name']} | {e['date']} | {e['source']}" + (f"\n    {e['link']}" if e.get('link') else "") for e in entries]
-                  if entries else ["  No results found."])
-        lines.append("")
-    return "\n".join(lines)
+    text_body = f"SC Obituaries — {today}\n" + "="*50 + "\n\n" + "\n".join(
+        f"{c} County ({len(results.get(c,[]))} found)\n" + "-"*30 + "\n" +
+        ("\n".join(f"  {e['name']} | {e['date']} | {e['source']}" for e in results.get(c,[])) or "  No results.") + "\n"
+        for c in COUNTIES
+    )
 
-
-def send_email(results, today):
-    if not EMAIL_FROM or not EMAIL_PASSWORD:
-        print("Email credentials not set — skipping email.")
-        return
-    if not EMAIL_TO:
-        print("EMAIL_TO not set — skipping email.")
-        return
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"SC Obituaries — {today}"
     msg["From"]    = EMAIL_FROM
     msg["To"]      = ", ".join(EMAIL_TO)
-    msg.attach(MIMEText(build_email_text(results, today), "plain"))
-    msg.attach(MIMEText(build_email_html(results, today),  "html"))
+    msg.attach(MIMEText(text_body, "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+
     try:
         context = ssl.create_default_context()
         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT, context=context) as server:
             server.login(EMAIL_FROM, EMAIL_PASSWORD)
             server.sendmail(EMAIL_FROM, EMAIL_TO, msg.as_string())
         print(f"Email sent to: {', '.join(EMAIL_TO)}")
-    except smtplib.SMTPAuthenticationError:
-        print("ERROR: Gmail auth failed. Use an App Password from myaccount.google.com/apppasswords")
     except Exception as e:
         print(f"ERROR sending email: {e}")
 
@@ -484,4 +678,4 @@ if __name__ == "__main__":
     history = save_history(history, today, results)
     save_dashboard(history)
     send_email(results, today)
-    print(f"\nDone! History: {HISTORY_FILE} | Dashboard: {DASHBOARD_OUT}")
+    print(f"\nDone! {total} obituaries found for {today}.")
