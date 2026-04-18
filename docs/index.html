@@ -143,8 +143,12 @@ function tbl(entries, county) {
   var rows = entries.map(function(e) {
     var link = e.link ? '<a class="vl" style="background:'+c+'" href="'+esc(e.link)+'" target="_blank">View</a>' : '&mdash;';
     var fam = e.family ? esc(e.family) : '&mdash;';
+    // Clean date: strip ordinal suffixes (14th -> 14), replace "See source" with dash
+    var rawDate = e.date || '';
+    var cleanDate = rawDate === 'See source' || rawDate === '' ? '&mdash;' :
+      esc(rawDate.replace(/(\d+)(st|nd|rd|th)/gi, '$1'));
     return '<tr><td><strong>'+esc(e.name)+'</strong></td>'
-      +'<td style="color:#666;font-size:12px;white-space:nowrap">'+esc(e.date||'&mdash;')+'</td>'
+      +'<td style="color:#666;font-size:12px;white-space:nowrap">'+cleanDate+'</td>'
       +'<td style="color:#666;font-size:12px">'+esc(e.location)+'</td>'
       +'<td style="color:#666;font-size:12px;font-style:italic">'+fam+'</td>'
       +'<td style="color:#666;font-size:12px">'+esc(e.source)+'</td>'
