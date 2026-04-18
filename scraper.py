@@ -77,10 +77,6 @@ FUNERAL_HOMES = {
         {"name": "Seawright Funeral Home",           "url": "https://seawright-funeralhome.com/obituaries"},
         {"name": "J.W. Woodward Funeral Home",       "url": "https://www.articobits.com/obituaries/jw-woodward-fh/"},
         {"name": "White Columns Funeral Service",    "url": "https://www.whitecolumnsfuneralservice.com/listings"},
-        {"name": "Calvert-Heald Funeral Home",       "url": "https://www.calvertheald.com/obituaries"},
-        {"name": "Allen Memorial Funeral Home",      "url": "https://www.allenmemorialfuneralhome.com/obituaries"},
-        {"name": "Blakely Funeral Home Gaffney",     "url": "https://www.blakeleyfuneralhome.com/obituaries"},
-        {"name": "Gordon Mortuary Gaffney",          "url": "https://www.gordonmortuaryinc.com/obituaries"},
         {"name": "Legacy.com Spartanburg County",    "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-county"},
         {"name": "Legacy.com Spartanburg Area",      "url": "https://www.legacy.com/us/obituaries/local/south-carolina/spartanburg-area"},
         {"name": "Legacy.com Herald-Journal",        "url": "https://www.legacy.com/us/obituaries/spartanburg/today"},
@@ -213,7 +209,7 @@ def fetch_legacy_api(county):
                 f"&city={requests.utils.quote(city)}"
                 f"&limit=50&offset=0"
             )
-            resp = requests.get(url, headers=LEGACY_HEADERS, timeout=20)
+            resp = requests.get(url, headers=LEGACY_HEADERS, timeout=15)
 
             if resp.status_code == 200:
                 data = resp.json()
@@ -276,7 +272,7 @@ def fetch_legacy_county_page(county, seen_names=None):
     results = []
     url = f"https://www.legacy.com/obituaries/search?countryId=1&regionId=42&countyName={requests.utils.quote(county)}"
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=20)
+        resp = requests.get(url, headers=HEADERS, timeout=15)
         if resp.status_code != 200:
             print(f"  [Legacy county page HTTP {resp.status_code}]")
             return []
@@ -359,7 +355,7 @@ def fetch_legacy_newspaper_pages(county, seen_names=None):
     for paper in papers:
         url = f"https://www.legacy.com/us/obituaries/{paper}/recent"
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=20)
+            resp = requests.get(url, headers=HEADERS, timeout=15)
             if resp.status_code != 200:
                 continue
             soup = BeautifulSoup(resp.text, "html.parser")
@@ -530,7 +526,7 @@ def fetch_funeral_home(name, url, county):
     """Scrape a funeral home obituary page with strict name validation."""
     results = []
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=20)
+        resp = requests.get(url, headers=HEADERS, timeout=15)
         if resp.status_code != 200:
             print(f"  [{resp.status_code}] {name}")
             return []
@@ -681,8 +677,8 @@ def fetch_funeral_home(name, url, county):
         if link.rstrip("/") == url.rstrip("/"):
             return ""
         try:
-            time.sleep(0.5)  # Be polite — small delay between individual page fetches
-            r = requests.get(link, headers=HEADERS, timeout=25)
+            time.sleep(0.2)  # Be polite — small delay between individual page fetches
+            r = requests.get(link, headers=HEADERS, timeout=15)
             if r.status_code == 200:
                 s = BeautifulSoup(r.text, "html.parser")
                 # Remove nav/header/footer/sidebar noise — keep only main content
@@ -768,6 +764,26 @@ def fetch_funeral_home(name, url, county):
             continue
         n = name_el.get_text(strip=True)
         add(n, make_link(card), make_date(card, card_text), card_text)
+
+    if results:
+        return results
+
+    # ── Strategy 2b: CFS/TA platform link-based layout ──
+    # Sites like Bobo, Roberts, Community Mortuary use this pattern:
+    # <a href="/obituary/First-Last">First Last</a> followed by city and obit text
+    for a in soup.find_all("a", href=re.compile(r"/obituary/", re.I)):
+        n = a.get_text(strip=True)
+        if not is_real_name(n):
+            continue
+        href = a.get("href", "")
+        link = (base_url + href) if href.startswith("/") else href
+        # Grab surrounding text for date/family
+        parent = a.parent
+        card_text = parent.get_text(" ", strip=True) if parent else ""
+        # Walk up if text is too short
+        if len(card_text) < 50 and parent:
+            card_text = parent.parent.get_text(" ", strip=True) if parent.parent else card_text
+        add(n, link, make_date(a, card_text), card_text)
 
     if results:
         return results
