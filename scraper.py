@@ -602,7 +602,7 @@ def save_history(history, today, results):
 # ─────────────────────────────────────────────
 
 def save_dashboard(history):
-    history_json = json.dumps(history, ensure_ascii=False)
+    history_json = json.dumps(history, ensure_ascii=True)
     today_key = sorted(history.keys())[-1] if history else ""
     updated = today_key or datetime.now().strftime("%Y-%m-%d")
 
